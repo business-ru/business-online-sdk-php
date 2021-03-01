@@ -15,9 +15,9 @@ final class Client
 
 	/**
 	 * @var string
-	 * Имя CRM
+	 * Имя аккаунта
 	 */
-	private $crm;
+	private $account;
 
 	/**
 	 * @var int
@@ -50,24 +50,25 @@ final class Client
 	private $sleepy;
 
 	/**
-	 * @var string
-	 * Метка времени появления старого токена
+	 * @var int
+	 *  Метка времени начала выполнения
 	 */
-	private $oldTokenTime;
+	private $startTime;
 
 
 	/**
 	 * Client constructor.
-	 * @param string $crm Имя CRM
+	 * @param string $account Имя аккаунта
 	 * @param int $app_id ID интеграции
 	 * @param string $secret Секретный ключ
-	 * @param false $sleepy Засыпать при превишении лимита запросов
+	 * @param false $sleepy Засыпать при превышении лимита запросов
+	 * @throws Exception
 	 */
-	public function __construct(string $crm, int $app_id, string $secret, $sleepy = false)
+	public function __construct(string $account, int $app_id, string $secret, $sleepy = false)
 	{
-		if (preg_match('~\d{3}\.\d{3}\.\d{3}\.\d{3}~', $crm)) {
-			$this->crm = trim($crm, '/');
-		} else $this->crm = 'https://' . $crm . '.business.ru';
+		if (preg_match('~\d{3}\.\d{3}\.\d{3}\.\d{3}~', $account)) {
+			$this->account = trim($account, '/');
+		} else $this->account = 'https://' . $account . '.business.ru';
 
 		$this->app_id = $app_id;
 		$this->secret = $secret;
@@ -75,6 +76,8 @@ final class Client
 		$this->sleepy = $sleepy;
 
 		$this->storeInit();
+
+		$this->startTime = $this->currentTime();
 	}
 
 	/**
@@ -189,6 +192,7 @@ final class Client
 	 * @param array $params
 	 * @return int|mixed|string[]
 	 * @throws JsonException
+	 * @throws Exception
 	 * Запрос к API
 	 */
 	public function request(string $method, string $model, array $params = [])
@@ -201,7 +205,6 @@ final class Client
 		}
 		if ($result == 503 && $this->sleepy)
 		{
-			set_time_limit(300);
 			$this->rSleep($method, $model, $params);
 			$result = $this->request($method, $model, $params);
 		}
@@ -233,7 +236,7 @@ final class Client
 		$params['app_psw'] = MD5($this->token . $this->secret . $params_string);
 
 		$params_string .= '&' . http_build_query($params);
-		$url = $this->crm . "/api/rest/" . $model . ".json";
+		$url = $this->account . "/api/rest/" . $model . ".json";
 
 		$c = curl_init();
 
@@ -293,12 +296,13 @@ final class Client
 	 * @param $model
 	 * @param $params
 	 * @throws JsonException
+	 * @throws Exception
 	 * Спит пока не проснется
 	 */
 	private function rSleep($method, $model, $params)
 	{
+		if (($this->currentTime() - $this->startTime) > 300) throw new Exception('Время ожидания сброса лимита запросов превышено');
 		sleep(10);
-		if (connection_aborted()) die();
 		$r = $this->Sendrequest('get', $model, ['count_only' => 1]);
 		if ($r == 503) $this->rSleep($method, $model, $params);
 	}
@@ -328,15 +332,9 @@ final class Client
 		if (!$ln) {
 			$this->token = $this->getNewToken();
 			$this->writeToken($this->token);
-			$this->oldTokenTime = $this->currentTime();
 			return;
 		}
-
-		$t = explode('|', $ln);
-
-		$this->oldTokenTime = array_shift($t);
-
-		$this->token = array_shift($t);
+		$this->token = $ln;
 	}
 
 	/**
@@ -346,7 +344,7 @@ final class Client
 	private function writeToken(string $token): void
 	{
 		file_put_contents(self::$homePath . 'token', null);
-		fwrite($this->tokenFile, $this->currentTime() . '|' . $token);
+		fwrite($this->tokenFile, $token);
 	}
 
 
@@ -354,7 +352,7 @@ final class Client
 	 * @return mixed|string[]
 	 * Восстановить токен
 	 */
-	private function getNewToken()
+	private function getNewToken(): array
 	{
 		$params = [];
 		$params['app_id'] = $this->app_id;
@@ -364,7 +362,7 @@ final class Client
 		$params['app_psw'] = MD5($this->secret . $params_string);
 
 		$params_string .= '&' . http_build_query($params);
-		$url = $this->crm . "/api/rest/repair.json";
+		$url = $this->account . "/api/rest/repair.json";
 
 		$c = curl_init();
 		curl_setopt($c, CURLOPT_URL, $url . '?' . $params_string);
@@ -375,7 +373,6 @@ final class Client
 
 		if ($status_code == 200) {
 			$result = json_decode($result, true);
-			$app_psw = $result['app_psw'];
 			unset($result['app_psw']);
 			return $result['token'];
 		} else return [
