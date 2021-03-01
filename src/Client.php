@@ -4,9 +4,15 @@ namespace bru\api;
 
 use Exception;
 use JsonException;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
+use Psr\Log\LogLevel;
 
-final class Client
+final class Client implements LoggerAwareInterface
 {
+
+	use LoggerAwareTrait;
+
 	/**
 	 * @var string
 	 * Домашняя директория библиотеки
@@ -98,6 +104,7 @@ final class Client
 		$maxLimit = $request['result']['count'];
 
 		if ($maxLimit > 250) {
+			$this->log(LogLevel::INFO, 'Выполнение запроса: количество записей в ответе - ' . $maxLimit);
 			$pages = (int)($maxLimit / 250);
 			$last_limit = $maxLimit % 250;
 
@@ -124,7 +131,10 @@ final class Client
 			}
 
 			return $result;
-		} else return $this->request($method, $model, $params);
+		} else {
+			$this->log(LogLevel::INFO, 'Запрос с лимитом меньше 250 записей рекомендуется выполнять методом request. Текущий лимит - ' . $maxLimit);
+			return $this->request($method, $model, $params);
+		}
 	}
 
 
@@ -157,7 +167,11 @@ final class Client
 	 */
 	public function sendNotification(array $data)
 	{
-		if (!isset($data['employee_ids']) || !isset($data['header']) || !isset($data['message'])) return;
+		if (!isset($data['employee_ids']) || !isset($data['header']) || !isset($data['message'])) {
+			$this->log(LogLevel::ERROR, 'Недостаточно параметров для отправки уведомления', $data);
+			return;
+		}
+		$this->log(LogLevel::INFO, 'Уведомление успешно отправлено на обработку');
 		return $this->request('post', 'notifications', $data);
 	}
 
@@ -266,23 +280,27 @@ final class Client
 		curl_close($c);
 
 		if ($status_code == 200) {
+			$this->log(LogLevel::INFO, 'Запрос выполнен успешно', ['method' => $method, 'model' => $model, 'params' => $params]);
 			$result = json_decode($result, true, 2048, JSON_THROW_ON_ERROR);
 			$app_psw = $result['app_psw'];
 			unset($result['app_psw']);
 
 			if (MD5($this->token . $this->secret . json_encode($result)) == $app_psw) {
+				$this->log(LogLevel::INFO, 'Токен прошел проверку');
 				$this->token = $result['token'];
 				return ($result);
 			} else {
+				$this->log(LogLevel::ERROR, 'Ошибка авторизации', ['method' => $method, 'model' => $model, 'params' => $params]);
 				return ["status" => "error",
 					"error_code" => "auth:1",
 					"error_text" => "Ошибка авторизации"];
 			}
 		} elseif ($status_code == 401) {
-			//Замена токена
+			$this->log(LogLevel::INFO, 'Токен просрочен');
 			return 401;
 		} elseif ($status_code == 503) {
-			//Лимит запросов
+			$this->log(LogLevel::INFO, 'Превышен лимит запросов');
+
 			return 503;
 		}
 		else {
@@ -299,9 +317,12 @@ final class Client
 	 * @throws Exception
 	 * Спит пока не проснется
 	 */
-	private function rSleep($method, $model, $params)
+	private function rSleep($method, $model, $params): void
 	{
-		if (($this->currentTime() - $this->startTime) > 300) throw new Exception('Время ожидания сброса лимита запросов превышено');
+		if (($this->currentTime() - $this->startTime) > 300) {
+			$this->log(LogLevel::ERROR, 'Время ожидания сброса лимита запросов превышено');
+			throw new Exception('Время ожидания сброса лимита запросов превышено');
+		}
 		sleep(10);
 		$r = $this->Sendrequest('get', $model, ['count_only' => 1]);
 		if ($r == 503) $this->rSleep($method, $model, $params);
@@ -309,14 +330,17 @@ final class Client
 
 
 	/**
-	 * Инициализация файла с токеном
-	 * @throws Exception
+	 * Инициализация файла хранения токена
 	 */
 	private function storeInit(): void
 	{
 		if (!file_exists(self::$homePath . 'token')) {
-			if (!is_readable(self::$homePath)) throw new Exception('Недостаточно прав для чтения в директории /src/');
-			if (!is_writable(self::$homePath)) throw new Exception('Недостаточно прав для записи в директории /src/');
+			if (!is_readable(self::$homePath)) {
+				$this->log(LogLevel::ERROR, 'Недостаточно прав для чтения в директории /src/');
+			}
+			if (!is_writable(self::$homePath)) {
+				$this->log(LogLevel::ERROR, 'Недостаточно прав для записи в директории /src/');
+			}
 		}
 
 		$this->tokenFile = fopen(self::$homePath . 'token', 'ab+');
@@ -329,7 +353,7 @@ final class Client
 	private function readToken(): void
 	{
 		$ln = fgets($this->tokenFile);
-		if (!$ln) {
+		if (!$ln || !is_string($ln) || (strlen($ln) !== 32)) {
 			$this->token = $this->getNewToken();
 			$this->writeToken($this->token);
 			return;
@@ -349,10 +373,9 @@ final class Client
 
 
 	/**
-	 * @return mixed|string[]
 	 * Восстановить токен
 	 */
-	private function getNewToken(): array
+	private function getNewToken()
 	{
 		$params = [];
 		$params['app_id'] = $this->app_id;
@@ -372,18 +395,45 @@ final class Client
 		curl_close($c);
 
 		if ($status_code == 200) {
+			$this->log(LogLevel::INFO, 'Получен новый токен');
 			$result = json_decode($result, true);
 			unset($result['app_psw']);
 			return $result['token'];
-		} else return [
-			"status" => "error",
-			"error_code" => "http:" . $status_code
-		];
+		} else {
+			$this->log(LogLevel::ERROR, 'Не удалось получить токен. Код ошибки: ' . $status_code);
+			return [
+				"status" => "error",
+				"error_code" => "http:" . $status_code
+			];
+		}
 	}
 
+	/**
+	 * @return string
+	 * Возвращает текущую метку времени
+	 */
 	private function currentTime(): string
 	{
 		return strtotime(date("Y-m-d H:i:s"));
+	}
+
+	/**
+	 * @param string $level
+	 * @param string $message
+	 * @param array $context
+	 * Форматирует сообщение для логирования
+	 */
+	private function log(string $level, string $message, array $context = []): void
+	{
+		if ($this->logger)
+		{
+			$messageF = date("Y-m-d H:i:s") . ': ' . trim($message, '.') . '.' . PHP_EOL;
+			try {
+				$this->logger->log($level, $messageF, $context);
+			} catch (Exception $exception)
+			{
+			}
+		}
 	}
 
 	public function __destruct()
