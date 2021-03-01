@@ -107,6 +107,13 @@ composer require business-ru/business-online-sdk-php
 
 Подробнее о веб - хуках можно узнать на сайте [документации.](https://developers.business.ru/)
 
+## Уведомления
+
+Для отправки уведомления пользователям используется метод **sendNotification()**
+
+Метод принимает в качестве аргумента массив с параметрами уведомления, подробнее можно узнать на сайте [документации.](https://developers.business.ru/)
+
+
 ### Примеры
 
 ```php
@@ -125,6 +132,9 @@ $api->requestAll('tasks', ['task_type_id' => 2]);
 
 //Вернет все товары
 $api->requestAll('goods');
+
+//Отправить пользователя 12345 уведомление
+$api->sendNotification(['employee_ids' => [12345], 'header' => 'Это заголовок уведомления', 'message' => 'Это текст сообщения']);
 
 ```
 

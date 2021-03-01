@@ -147,6 +147,19 @@ final class Client
 
 
 	/**
+	 * @param array $data Параметры уведомления
+	 * @return int|mixed|string[]|void
+	 * @throws JsonException
+	 * Отправляет уведомление пользователям
+	 */
+	public function sendNotification(array $data)
+	{
+		if (!isset($data['employee_ids']) || !isset($data['header']) || !isset($data['message'])) return;
+		return $this->request('post', 'notifications', $data);
+	}
+
+
+	/**
 	 * @return bool
 	 * Проверяет подлинность уведомления
 	 */
