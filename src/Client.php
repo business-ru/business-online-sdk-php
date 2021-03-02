@@ -333,7 +333,7 @@ final class Client implements LoggerAwareInterface
 	 */
 	private function rSleep($method, $model, $params): void
 	{
-		if (($this->currentTime() - $this->startTime) > 300) {
+		if (($this->currentTime() - $this->startTime) > ((int)ini_get('max_execution_time') < 300) ?  ini_get('max_execution_time') : 300) {
 			$this->log(LogLevel::ERROR, 'Время ожидания сброса лимита запросов превышено');
 			throw new Exception('Время ожидания сброса лимита запросов превышено');
 		}
