@@ -2,64 +2,164 @@
 
 namespace bru\api\Http;
 
+use http\Exception\InvalidArgumentException;
 use Psr\Http\Message\MessageInterface;
 use Psr\Http\Message\StreamInterface;
 
 class Message implements MessageInterface
 {
 
-	public function getProtocolVersion()
+	/**
+	 * @var string
+	 * Версия протокола
+	 */
+	private $protocolVersion;
+
+	/**
+	 * @var array
+	 * Заголовки сообщения
+	 */
+	private $headers = [];
+	/**
+	 * @var StreamInterface
+	 * Тело сообщения
+	 */
+	private $body;
+
+	public function getProtocolVersion(): string
 	{
-		// TODO: Implement getProtocolVersion() method.
+		if (isset($this->protocolVersion)) return $this->protocolVersion;
+		return '';
 	}
 
-	public function withProtocolVersion($version)
+	/**
+	 * @param string $version
+	 * @return Message
+	 */
+	public function withProtocolVersion($version): self
 	{
-		// TODO: Implement withProtocolVersion() method.
+		$this->protocolVersion = $version;
+		return $this;
 	}
 
-	public function getHeaders()
+	/**
+	 * @return array
+	 */
+	public function getHeaders(): array
 	{
-		// TODO: Implement getHeaders() method.
+		return $this->headers;
 	}
 
-	public function hasHeader($name)
+	/**
+	 * @param string $name
+	 * @return bool
+	 */
+	public function hasHeader($name): bool
 	{
-		// TODO: Implement hasHeader() method.
+		if (isset($this->headers[$name])) return true;
+		return false;
 	}
 
-	public function getHeader($name)
+	/**
+	 * @param string $name
+	 * @return array
+	 */
+	public function getHeader($name): array
 	{
-		// TODO: Implement getHeader() method.
+		if (isset($this->headers[$name])) {
+			if (is_array($this->headers[$name])) return $this->headers[$name];
+			if (is_string($this->headers[$name])) return [$this->headers[$name]];
+		}
+		return [];
 	}
 
-	public function getHeaderLine($name)
+	/**
+	 * @param string $name
+	 * @return string
+	 */
+	public function getHeaderLine($name): string
 	{
-		// TODO: Implement getHeaderLine() method.
+		if (!empty($this->headers))
+		{
+			return implode(',', $this->headers);
+		}
+		return '';
 	}
 
-	public function withHeader($name, $value)
+	/**
+	 * @param string $name
+	 * @param string|string[] $value
+	 * @return static
+	 */
+	public function withHeader($name, $value): self
 	{
-		// TODO: Implement withHeader() method.
+		if (!is_string($value) && !is_array($value)) throw new InvalidArgumentException('Значение заголовка должно быть строкой либо массивом');
+		$this->headers[$name] = $value;
+		return $this;
 	}
 
-	public function withAddedHeader($name, $value)
+	/**
+	 * @param string $name
+	 * @param string|string[] $value
+	 * @return $this
+	 */
+	public function withAddedHeader($name, $value): self
 	{
-		// TODO: Implement withAddedHeader() method.
+		if (!is_string($value) && !is_array($value)) throw new InvalidArgumentException('Значение заголовка должно быть строкой либо массивом');
+		if (!isset($this->headers[$name])) $this->headers[$name] = $value;
+		else {
+			if (is_string($this->headers[$name]))
+			{
+				$temp = $this->headers[$name];
+				$this->headers = [];
+				$this->headers[$name][] = $temp;
+				if (is_string($value)) $this->headers[$name][] = $value;
+				if (is_array($value)) {
+					foreach ($value as $header) {
+						$this->headers[$name][] = $header;
+					}
+				}
+			}
+			elseif (is_array($this->headers[$name]))
+			{
+				if (is_string($value)) $this->headers[$name][] = $value;
+				if (is_array($value)) {
+					foreach ($value as $header) {
+						$this->headers[$name][] = $header;
+					}
+				}
+			}
+		}
+		return $this;
 	}
 
-	public function withoutHeader($name)
+	/**
+	 * @param string $name
+	 * @return $this
+	 */
+	public function withoutHeader($name): self
 	{
-		// TODO: Implement withoutHeader() method.
+		if (isset($this->headers[$name])) unset($this->headers[$name]);
+		return $this;
 	}
 
-	public function getBody()
+	/**
+	 * @return object
+	 */
+	public function getBody(): object
 	{
-		// TODO: Implement getBody() method.
+		if (isset($this->body)) return $this;
+		return new Stream();
 	}
 
-	public function withBody(StreamInterface $body)
+	/**
+	 * @param StreamInterface $body
+	 * @return $this
+	 */
+	public function withBody(StreamInterface $body): self
 	{
-		// TODO: Implement withBody() method.
+		//TODO добавить проверку $body c выбросом исключения
+		$this->body = $body;
+		return $this;
 	}
 }

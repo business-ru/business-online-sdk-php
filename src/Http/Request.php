@@ -4,6 +4,7 @@
 namespace bru\api\Http;
 
 
+use Psr\Http\Message\MessageInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UriInterface;
@@ -11,88 +12,205 @@ use Psr\Http\Message\UriInterface;
 class Request implements RequestInterface
 {
 
-	public function getProtocolVersion()
+	/**
+	 * @var MessageInterface
+	 * Сообщение
+	 */
+	private $message;
+
+	/**
+	 * @var string
+	 * Адрес запроса
+	 */
+	private $requestTarget;
+
+	/**
+	 * @var string
+	 * Метод запроса
+	 */
+	private $method;
+
+	/**
+	 * @var UriInterface
+	 * URI запроса
+	 */
+	private $uri;
+
+	/**
+	 * @return string
+	 */
+	public function getProtocolVersion(): string
 	{
-		// TODO: Implement getProtocolVersion() method.
+		if (isset($this->message)) return $this->message->getProtocolVersion();
+		return '';
 	}
 
-	public function withProtocolVersion($version)
+	public function withProtocolVersion($version): self
 	{
-		// TODO: Implement withProtocolVersion() method.
+		if (isset($this->message)) $this->message->withProtocolVersion($version);
+		return $this;
 	}
 
-	public function getHeaders()
+	/**
+	 * @return array
+	 */
+	public function getHeaders(): array
 	{
-		// TODO: Implement getHeaders() method.
+		if (isset($this->message)) return $this->message->getHeaders();
+		return [];
 	}
 
-	public function hasHeader($name)
+	/**
+	 * @param string $name
+	 * @return bool
+	 */
+	public function hasHeader($name): bool
 	{
-		// TODO: Implement hasHeader() method.
+		if (isset($this->message) && $this->message->hasHeader($name)) return true;
+		return false;
 	}
 
-	public function getHeader($name)
+	/**
+	 * @param string $name
+	 * @return array
+	 */
+	public function getHeader($name): array
 	{
-		// TODO: Implement getHeader() method.
+		if (isset($this->message)) return $this->message->getHeader($name);
+		return [];
 	}
 
-	public function getHeaderLine($name)
+	/**
+	 * @param string $name
+	 * @return string
+	 */
+	public function getHeaderLine($name): string
 	{
-		// TODO: Implement getHeaderLine() method.
+		if (isset($this->message)) return $this->message->getHeaderLine();
+		return '';
 	}
 
-	public function withHeader($name, $value)
+	/**
+	 * @param string $name
+	 * @param string|string[] $value
+	 * @return $this
+	 */
+	public function withHeader($name, $value): self
 	{
-		// TODO: Implement withHeader() method.
+		if (isset($this->message)) {
+			$this->message->withHeader($name, $value);
+			return $this;
+	}
+		return $this;
 	}
 
-	public function withAddedHeader($name, $value)
+	/**
+	 * @param string $name
+	 * @param string|string[] $value
+	 * @return $this
+	 */
+	public function withAddedHeader($name, $value): self
 	{
-		// TODO: Implement withAddedHeader() method.
+		if (isset($this->message)) {
+			$this->message->withHeader($name, $value);
+			return $this;
+		}
+		return $this;
 	}
 
-	public function withoutHeader($name)
+	/**
+	 * @param string $name
+	 * @return $this
+	 */
+	public function withoutHeader($name): self
 	{
-		// TODO: Implement withoutHeader() method.
+		if (isset($this->message)) {
+			$this->message->withoutHeader($name);
+			return $this;
+		}
+		return $this;
 	}
 
-	public function getBody()
+	/**
+	 * @return object
+	 */
+	public function getBody(): object
 	{
-		// TODO: Implement getBody() method.
+		if (isset($this->message)) {
+			return $this->message->getBody();
+		}
+		return new Stream();
 	}
 
-	public function withBody(StreamInterface $body)
+	/**
+	 * @param StreamInterface $body
+	 * @return $this
+	 */
+	public function withBody(StreamInterface $body): self
 	{
-		// TODO: Implement withBody() method.
+		if (isset($this->message)) {
+			$this->message->withBody($body);
+			return $this;
+		}
+		return $this;
 	}
 
-	public function getRequestTarget()
+	/**
+	 * @return string
+	 */
+	public function getRequestTarget(): string
 	{
-		// TODO: Implement getRequestTarget() method.
+		if (!isset($this->requestTarget)) return '';
+		return $this->requestTarget;
 	}
 
-	public function withRequestTarget($requestTarget)
+	/**
+	 * @param mixed $requestTarget
+	 * @return $this
+	 */
+	public function withRequestTarget($requestTarget): self
 	{
-		// TODO: Implement withRequestTarget() method.
+		$this->requestTarget = $requestTarget;
+		return $this;
 	}
 
-	public function getMethod()
+	/**
+	 * @return string
+	 */
+	public function getMethod(): string
 	{
-		// TODO: Implement getMethod() method.
+		if (isset($this->method)) return $this->method;
+		return '';
 	}
 
-	public function withMethod($method)
+	/**
+	 * @param string $method
+	 * @return $this
+	 */
+	public function withMethod($method): self
 	{
-		// TODO: Implement withMethod() method.
+		$this->method = $method;
+		return $this;
 	}
 
-	public function getUri()
+	/**
+	 * @return UriInterface
+	 */
+	public function getUri(): UriInterface
 	{
-		// TODO: Implement getUri() method.
+		if (isset($this->uri)) return $this->uri;
+		return new Uri();
 	}
 
-	public function withUri(UriInterface $uri, $preserveHost = false)
+	/**
+	 * @param UriInterface $uri
+	 * @param false $preserveHost
+	 * @return $this
+	 */
+	public function withUri(UriInterface $uri, $preserveHost = false): self
 	{
-		// TODO: Implement withUri() method.
+		//TODO добавить обработку $preserveHost
+		$this->uri = $uri;
+		return $this;
 	}
 }
