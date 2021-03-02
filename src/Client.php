@@ -7,17 +7,12 @@ use JsonException;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use Psr\Log\LogLevel;
+use Psr\SimpleCache\CacheInterface;
 
 final class Client implements LoggerAwareInterface
 {
 
 	use LoggerAwareTrait;
-
-	/**
-	 * @var string
-	 * Домашняя директория библиотеки
-	 */
-	public static $homePath = __DIR__ . DIRECTORY_SEPARATOR;
 
 	/**
 	 * @var string
@@ -44,12 +39,6 @@ final class Client implements LoggerAwareInterface
 	private $token;
 
 	/**
-	 * @var resource
-	 * Файл с токеном
-	 */
-	private $tokenFile;
-
-	/**
 	 * @var bool
 	 * Спать при превышении лимита запросов
 	 */
@@ -61,16 +50,24 @@ final class Client implements LoggerAwareInterface
 	 */
 	private $startTime;
 
+	/**
+	 * @var object
+	 * Объект для работы с кэшем
+	 */
+	private $cache;
+
 
 	/**
 	 * Client constructor.
 	 * @param string $account Имя аккаунта
 	 * @param int $app_id ID интеграции
 	 * @param string $secret Секретный ключ
+	 * @param CacheInterface|null $cache Объект для кэширования
 	 * @param false $sleepy Засыпать при превышении лимита запросов
+	 * @throws SimpleFileCacheException
 	 * @throws Exception
 	 */
-	public function __construct(string $account, int $app_id, string $secret, $sleepy = false)
+	public function __construct(string $account, int $app_id, string $secret, $sleepy = false, CacheInterface $cache = null)
 	{
 		if (preg_match('~\d{3}\.\d{3}\.\d{3}\.\d{3}~', $account)) {
 			$this->account = trim($account, '/');
@@ -81,7 +78,24 @@ final class Client implements LoggerAwareInterface
 
 		$this->sleepy = $sleepy;
 
-		$this->storeInit();
+		if (!$cache) $this->cache = new SimpleFileCache();
+
+		if ($this->cache->has($this->getCacheKey()))
+		{
+			$this->token = $this->cache->get($this->getCacheKey());
+		}
+		else {
+			$this->token = $this->getNewToken();
+
+			if (is_array($this->token) && $this->token['status'] == 'error')
+			{
+				$this->log(LogLevel::ERROR, 'Данные для API неверные. Код ошибки: ' . $this->token['error_code'], ['account' => $account,
+					'app_id' => $app_id, 'secret' => $secret]);
+				throw new Exception('Данные для API неверные. Код ошибки: ' . $this->token['error_code']);
+			} elseif (is_string($this->token)){
+				$this->cache->set($this->getCacheKey(), $this->token);
+			}
+		}
 
 		$this->startTime = $this->currentTime();
 	}
@@ -91,6 +105,7 @@ final class Client implements LoggerAwareInterface
 	 * @param array $params
 	 * @return array|int|mixed|string[]
 	 * @throws JsonException
+	 * @throws SimpleFileCacheException
 	 * Получить все записи модели (с условиями в $params)
 	 */
 	public function requestAll(string $model, array $params = [])
@@ -132,7 +147,7 @@ final class Client implements LoggerAwareInterface
 
 			return $result;
 		} else {
-			$this->log(LogLevel::INFO, 'Запрос с лимитом меньше 250 записей рекомендуется выполнять методом request. Текущий лимит - ' . $maxLimit);
+			$this->log(LogLevel::WARNING, 'Запрос с лимитом меньше 250 записей рекомендуется выполнять методом request. Текущий лимит - ' . $maxLimit);
 			return $this->request($method, $model, $params);
 		}
 	}
@@ -205,16 +220,16 @@ final class Client implements LoggerAwareInterface
 	 * @param string $model
 	 * @param array $params
 	 * @return int|mixed|string[]
-	 * @throws JsonException
-	 * @throws Exception
+	 * @throws JsonException|SimpleFileCacheException
 	 * Запрос к API
 	 */
 	public function request(string $method, string $model, array $params = [])
 	{
 		$result = $this->Sendrequest($method, $model, $params);
+		//Токен не прошел
 		if ($result == 401) {
 			$this->token = $this->getNewToken();
-			$this->writeToken($this->token);
+			$this->cache->set($this->getCacheKey(), $this->token);
 			$result = $this->Sendrequest($method, $model, $params);
 		}
 		if ($result == 503 && $this->sleepy)
@@ -287,7 +302,6 @@ final class Client implements LoggerAwareInterface
 
 			if (MD5($this->token . $this->secret . json_encode($result)) == $app_psw) {
 				$this->log(LogLevel::INFO, 'Токен прошел проверку');
-				$this->token = $result['token'];
 				return ($result);
 			} else {
 				$this->log(LogLevel::ERROR, 'Ошибка авторизации', ['method' => $method, 'model' => $model, 'params' => $params]);
@@ -300,7 +314,6 @@ final class Client implements LoggerAwareInterface
 			return 401;
 		} elseif ($status_code == 503) {
 			$this->log(LogLevel::INFO, 'Превышен лимит запросов');
-
 			return 503;
 		}
 		else {
@@ -326,49 +339,6 @@ final class Client implements LoggerAwareInterface
 		sleep(10);
 		$r = $this->Sendrequest('get', $model, ['count_only' => 1]);
 		if ($r == 503) $this->rSleep($method, $model, $params);
-	}
-
-
-	/**
-	 * Инициализация файла хранения токена
-	 */
-	private function storeInit(): void
-	{
-		if (!file_exists(self::$homePath . 'token')) {
-			if (!is_readable(self::$homePath)) {
-				$this->log(LogLevel::ERROR, 'Недостаточно прав для чтения в директории /src/');
-			}
-			if (!is_writable(self::$homePath)) {
-				$this->log(LogLevel::ERROR, 'Недостаточно прав для записи в директории /src/');
-			}
-		}
-
-		$this->tokenFile = fopen(self::$homePath . 'token', 'ab+');
-		$this->readToken();
-	}
-
-	/**
-	 * Получение токена
-	 */
-	private function readToken(): void
-	{
-		$ln = fgets($this->tokenFile);
-		if (!$ln || !is_string($ln) || (strlen($ln) !== 32)) {
-			$this->token = $this->getNewToken();
-			$this->writeToken($this->token);
-			return;
-		}
-		$this->token = $ln;
-	}
-
-	/**
-	 * @param string $token
-	 * Пишет токен в файл
-	 */
-	private function writeToken(string $token): void
-	{
-		file_put_contents(self::$homePath . 'token', null);
-		fwrite($this->tokenFile, $token);
 	}
 
 
@@ -436,9 +406,12 @@ final class Client implements LoggerAwareInterface
 		}
 	}
 
-	public function __destruct()
+	/**
+	 * @return string
+	 * Возвращает ключ кэша текущего приложения
+	 */
+	private function getCacheKey(): string
 	{
-		fclose($this->tokenFile);
+		return md5($this->account . $this->app_id);
 	}
-
 }
