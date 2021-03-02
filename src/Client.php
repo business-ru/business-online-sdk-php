@@ -81,6 +81,7 @@ final class Client implements LoggerAwareInterface
 		$this->sleepy = $sleepy;
 
 		if (!$cache) $this->cache = new SimpleFileCache();
+		else $this->cache = $cache;
 
 		if ($this->cache->has($this->getCacheKey())) {
 			$this->token = $this->cache->get($this->getCacheKey());
@@ -397,7 +398,7 @@ final class Client implements LoggerAwareInterface
 	{
 		if ($this->logger) {
 			$messageF = date("Y-m-d H:i:s") . ': ' . trim($message, '.') . '.' . PHP_EOL;
-			$this->logger->log($level, $messageF, $context);
+			call_user_func([$this->logger, $level], $messageF, $context);
 		}
 	}
 
