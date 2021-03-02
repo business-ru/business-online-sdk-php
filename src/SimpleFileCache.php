@@ -2,6 +2,8 @@
 
 namespace bru\api;
 
+use bru\api\Exception\SimpleFileCacheException;
+use bru\api\Exception\SimpleFileCacheInvalidArgumentException;
 use Psr\SimpleCache\CacheInterface;
 
 class SimpleFileCache implements CacheInterface
@@ -33,6 +35,8 @@ class SimpleFileCache implements CacheInterface
 	 */
 	public function get($key, $default = null)
 	{
+		if (!is_string($key)) throw new SimpleFileCacheInvalidArgumentException('Ключ должен быть строкой');
+
 		$cacheFile = $this->cachePath . DIRECTORY_SEPARATOR . $key;
 
 		//Нет прав для чтения
@@ -58,9 +62,12 @@ class SimpleFileCache implements CacheInterface
 	 * @param null $ttl
 	 * @return bool
 	 * @throws SimpleFileCacheException
+	 * @throws SimpleFileCacheInvalidArgumentException
 	 */
 	public function set($key, $value, $ttl = null): bool
 	{
+		if (!is_string($key)) throw new SimpleFileCacheInvalidArgumentException('Ключ должен быть строкой');
+
 		$cacheFile = $this->cachePath . DIRECTORY_SEPARATOR . $key;
 
 		//Нет прав для записи
@@ -77,9 +84,11 @@ class SimpleFileCache implements CacheInterface
 	/**
 	 * @param string $key
 	 * @return bool|void
+	 * @throws SimpleFileCacheInvalidArgumentException
 	 */
 	public function delete($key): bool
 	{
+		if (!is_string($key)) throw new SimpleFileCacheInvalidArgumentException('Ключ должен быть строкой');
 		$cacheFile = $this->cachePath . DIRECTORY_SEPARATOR . $key;
 
 		if (file_exists($cacheFile)) {
@@ -112,9 +121,11 @@ class SimpleFileCache implements CacheInterface
 	/**
 	 * @param string $key
 	 * @return bool
+	 * @throws SimpleFileCacheInvalidArgumentException
 	 */
 	public function has($key): bool
 	{
+		if (!is_string($key)) throw new SimpleFileCacheInvalidArgumentException('Ключ должен быть строкой');
 		$cacheFile = $this->cachePath . DIRECTORY_SEPARATOR . $key;
 
 		if (file_exists($cacheFile)) return true;
