@@ -67,32 +67,33 @@ final class Client implements LoggerAwareInterface
 	 * @throws SimpleFileCacheException
 	 * @throws Exception
 	 */
-	public function __construct(string $account, int $app_id, string $secret, $sleepy = false, CacheInterface $cache = null)
+	public function __construct(string $account, int $app_id, string $secret,bool $sleepy = false, CacheInterface $cache = null)
 	{
-		if (preg_match('~\d{3}\.\d{3}\.\d{3}\.\d{3}~', $account)) {
+		if (preg_match('~\d{3}\.\d{3}\.\d{3}\.\d{3}~', $account))
+		{
 			$this->account = trim($account, '/');
-		} else $this->account = 'https://' . $account . '.business.ru';
+		} else {
+			$this->account = 'https://' . $account . '.business.ru';
+		}
 
 		$this->app_id = $app_id;
 		$this->secret = $secret;
-
 		$this->sleepy = $sleepy;
 
 		if (!$cache) $this->cache = new SimpleFileCache();
 
-		if ($this->cache->has($this->getCacheKey()))
-		{
+		if ($this->cache->has($this->getCacheKey())) {
 			$this->token = $this->cache->get($this->getCacheKey());
-		}
-		else {
+		} else {
 			$this->token = $this->getNewToken();
 
-			if (is_array($this->token) && $this->token['status'] == 'error')
-			{
+			if (is_array($this->token) && $this->token['status'] === 'error') {
 				$this->log(LogLevel::ERROR, 'Данные для API неверные. Код ошибки: ' . $this->token['error_code'], ['account' => $account,
 					'app_id' => $app_id, 'secret' => $secret]);
 				throw new Exception('Данные для API неверные. Код ошибки: ' . $this->token['error_code']);
-			} elseif (is_string($this->token)){
+			}
+
+			if (is_string($this->token) && (strlen($this->token) == 32)) {
 				$this->cache->set($this->getCacheKey(), $this->token);
 			}
 		}
@@ -144,14 +145,12 @@ final class Client implements LoggerAwareInterface
 				$result['status'] = $request['status'];
 				$result['request_count'] += (int)$request['request_count'];
 			}
-
 			return $result;
-		} else {
-			$this->log(LogLevel::WARNING, 'Запрос с лимитом меньше 250 записей рекомендуется выполнять методом request. Текущий лимит - ' . $maxLimit);
-			return $this->request($method, $model, $params);
 		}
-	}
 
+		$this->log(LogLevel::WARNING, 'Запрос с лимитом меньше 250 записей рекомендуется выполнять методом request. Текущий лимит - ' . $maxLimit);
+		return $this->request($method, $model, $params);
+	}
 
 	/**
 	 * @return bool
@@ -303,23 +302,24 @@ final class Client implements LoggerAwareInterface
 			if (MD5($this->token . $this->secret . json_encode($result)) == $app_psw) {
 				$this->log(LogLevel::INFO, 'Токен прошел проверку');
 				return ($result);
-			} else {
-				$this->log(LogLevel::ERROR, 'Ошибка авторизации', ['method' => $method, 'model' => $model, 'params' => $params]);
-				return ["status" => "error",
-					"error_code" => "auth:1",
-					"error_text" => "Ошибка авторизации"];
 			}
-		} elseif ($status_code == 401) {
+
+			$this->log(LogLevel::ERROR, 'Ошибка авторизации', ['method' => $method, 'model' => $model, 'params' => $params]);
+			return ["status" => "error",
+				"error_code" => "auth:1",
+				"error_text" => "Ошибка авторизации"];
+		}
+
+		if ($status_code == 401) {
 			$this->log(LogLevel::INFO, 'Токен просрочен');
 			return 401;
-		} elseif ($status_code == 503) {
+		}
+
+		if ($status_code == 503) {
 			$this->log(LogLevel::INFO, 'Превышен лимит запросов');
 			return 503;
 		}
-		else {
-			return ["status" => "error",
-				"error_code" => "http:" . $status_code];
-		}
+		return ["status" => "error", "error_code" => "http:" . $status_code];
 	}
 
 	/**
@@ -369,13 +369,13 @@ final class Client implements LoggerAwareInterface
 			$result = json_decode($result, true);
 			unset($result['app_psw']);
 			return $result['token'];
-		} else {
-			$this->log(LogLevel::ERROR, 'Не удалось получить токен. Код ошибки: ' . $status_code);
-			return [
-				"status" => "error",
-				"error_code" => "http:" . $status_code
-			];
 		}
+
+		$this->log(LogLevel::ERROR, 'Не удалось получить токен. Код ошибки: ' . $status_code);
+		return [
+			"status" => "error",
+			"error_code" => "http:" . $status_code
+		];
 	}
 
 	/**
@@ -395,14 +395,9 @@ final class Client implements LoggerAwareInterface
 	 */
 	private function log(string $level, string $message, array $context = []): void
 	{
-		if ($this->logger)
-		{
+		if ($this->logger) {
 			$messageF = date("Y-m-d H:i:s") . ': ' . trim($message, '.') . '.' . PHP_EOL;
-			try {
-				$this->logger->log($level, $messageF, $context);
-			} catch (Exception $exception)
-			{
-			}
+			$this->logger->log($level, $messageF, $context);
 		}
 	}
 
