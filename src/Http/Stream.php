@@ -4,14 +4,50 @@
 namespace bru\api\Http;
 
 
+use http\Exception\RuntimeException;
 use Psr\Http\Message\StreamInterface;
 
 class Stream implements StreamInterface
 {
+	/**
+	 * @var StreamInterface
+	 * Поток данных
+	 */
+	private $stream;
 
-	public function __toString()
+	/**
+	 * @var string
+	 * Модификатор доступа
+	 */
+	private $mode;
+
+	/**
+	 * @var array
+	 * Метаданные потока
+	 */
+	private $metadata;
+
+	/**
+	 * Stream constructor.
+	 * @param StreamInterface $stream
+	 * @param string $mode
+	 */
+	public function __construct(StreamInterface $stream, string $mode)
 	{
-		// TODO: Implement __toString() method.
+		//TODO добавить проверку $mode
+
+		$this->stream = $stream;
+		$this->mode = $mode;
+		$this->metadata = stream_get_meta_data($this->stream);
+	}
+
+	/**
+	 * @return string
+	 */
+	public function __toString(): string
+	{
+		$this->stream->seek(0);
+		return $this->stream->getContents();
 	}
 
 	public function close()
@@ -74,13 +110,26 @@ class Stream implements StreamInterface
 		// TODO: Implement read() method.
 	}
 
+
+	/**
+	 * @return false|string
+	 */
 	public function getContents()
 	{
-		// TODO: Implement getContents() method.
+		if ($c = stream_get_contents($this->stream)) return $c;
+		throw new RuntimeException('Нет прав для чтения потока');
+		return '';
 	}
 
+
+	/**
+	 * @param null $key
+	 * @return array|mixed|null
+	 */
 	public function getMetadata($key = null)
 	{
-		// TODO: Implement getMetadata() method.
+		if (is_null($key)) return $this->metadata;
+		if (isset($this->metadata[$key])) return $this->metadata[$key];
+		return null;
 	}
 }

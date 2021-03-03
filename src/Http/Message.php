@@ -6,7 +6,7 @@ use http\Exception\InvalidArgumentException;
 use Psr\Http\Message\MessageInterface;
 use Psr\Http\Message\StreamInterface;
 
-class Message implements MessageInterface
+final class Message implements MessageInterface
 {
 
 	/**
@@ -32,9 +32,10 @@ class Message implements MessageInterface
 		return '';
 	}
 
+
 	/**
 	 * @param string $version
-	 * @return Message
+	 * @return $this
 	 */
 	public function withProtocolVersion($version): self
 	{
@@ -89,7 +90,7 @@ class Message implements MessageInterface
 	/**
 	 * @param string $name
 	 * @param string|string[] $value
-	 * @return static
+	 * @return $this
 	 */
 	public function withHeader($name, $value): self
 	{
@@ -148,7 +149,7 @@ class Message implements MessageInterface
 	 */
 	public function getBody(): object
 	{
-		if (isset($this->body)) return $this;
+		if (isset($this->body)) return $this->body;
 		return new Stream();
 	}
 

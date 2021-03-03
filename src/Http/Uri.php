@@ -1,91 +1,237 @@
 <?php
 
-
 namespace bru\api\Http;
-
 
 use Psr\Http\Message\UriInterface;
 
 class Uri implements UriInterface
 {
 
-	public function getScheme()
+	/**
+	 * @var string
+	 * Схема URI
+	 */
+	private $scheme;
+
+	/**
+	 * @var string
+	 * Имя хоста
+	 */
+	private $host;
+
+	/**
+	 * @var string
+	 * Имя пользователя
+	 */
+	private $user;
+
+	/**
+	 * @var string
+	 * Пароль
+	 */
+	private $pass;
+
+	/**
+	 * @var int
+	 * Порт
+	 */
+	private $port;
+
+	/**
+	 * @var string
+	 * Компонент пути
+	 */
+	private $path;
+
+	/**
+	 * @var string
+	 * Строка запроса
+	 */
+	private $query;
+
+	/**
+	 * @var string
+	 * Фрагмент запроса
+	 */
+	private $fragment;
+
+	/**
+	 * @return string
+	 */
+	public function getScheme(): string
 	{
-		// TODO: Implement getScheme() method.
+		if ($this->scheme) return $this->scheme;
+		return '';
 	}
 
-	public function getAuthority()
+	/**
+	 * @return string
+	 */
+	public function getAuthority(): string
 	{
-		// TODO: Implement getAuthority() method.
+		//TODO проверить правильность
+		$authority = '';
+
+		if ($this->user) $authority .= $this->user;
+		if ($this->pass) $authority .= ':' . $this->pass;
+		if ($this->host) $authority .= '@' . $this->host;
+		if ($this->port) $authority .= ':' . $this->port;
+
+		return $authority;
 	}
 
-	public function getUserInfo()
+	/**
+	 * @return string
+	 */
+	public function getUserInfo(): string
 	{
-		// TODO: Implement getUserInfo() method.
+		$user_info = '';
+
+		if ($this->user) $user_info .= $this->user;
+		if ($this->pass) $user_info .= $this->pass;
+
+		return $user_info;
 	}
 
-	public function getHost()
+	/**
+	 * @return string
+	 */
+	public function getHost(): string
 	{
-		// TODO: Implement getHost() method.
+		if ($this->host) return $this->host;
+		return '';
 	}
 
+	/**
+	 * @return int|null
+	 */
 	public function getPort()
 	{
-		// TODO: Implement getPort() method.
+		if ($this->port) return $this->port;
+		return null;
 	}
 
-	public function getPath()
+	/**
+	 * @return string
+	 */
+	public function getPath(): string
 	{
-		// TODO: Implement getPath() method.
+		if ($this->path) return $this->path;
+		return '';
 	}
 
-	public function getQuery()
+	/**
+	 * @return string
+	 */
+	public function getQuery(): string
 	{
-		// TODO: Implement getQuery() method.
+		if ($this->query) return $this->query;
+		return '/';
 	}
 
-	public function getFragment()
+	/**
+	 * @return string
+	 */
+	public function getFragment(): string
 	{
-		// TODO: Implement getFragment() method.
+		if ($this->fragment) return $this->fragment;
+		return '';
 	}
 
-	public function withScheme($scheme)
+	/**
+	 * @param string $scheme
+	 * @return $this
+	 */
+	public function withScheme($scheme): self
 	{
-		// TODO: Implement withScheme() method.
+		//TODO добавить проверку параметра
+		$this->scheme = $scheme;
+		return $this;
 	}
 
-	public function withUserInfo($user, $password = null)
+	/**
+	 * @param string $user
+	 * @param null $password
+	 * @return $this
+	 */
+	public function withUserInfo($user, $password = null): self
 	{
-		// TODO: Implement withUserInfo() method.
+		$this->user = $user;
+		if ($password) $this->pass = $password;
+		return $this;
 	}
 
-	public function withHost($host)
+	/**
+	 * @param string $host
+	 * @return $this
+	 */
+	public function withHost($host): self
 	{
-		// TODO: Implement withHost() method.
+		//TODO добавить проверку параметра
+		$this->host = $host;
+		return $this;
 	}
 
-	public function withPort($port)
+	/**
+	 * @param int|null $port
+	 * @return $this
+	 */
+	public function withPort($port): self
 	{
-		// TODO: Implement withPort() method.
+		//TODO добавить проверку параметра
+		$this->port = $port;
+		return $this;
 	}
 
-	public function withPath($path)
+	/**
+	 * @param string $path
+	 * @return $this
+	 */
+	public function withPath($path): self
 	{
-		// TODO: Implement withPath() method.
+		//TODO добавить проверку параметра
+		$this->path = $path;
+		return $this;
 	}
 
-	public function withQuery($query)
+	/**
+	 * @param string $query
+	 * @return $this
+	 */
+	public function withQuery($query): self
 	{
-		// TODO: Implement withQuery() method.
+		//TODO добавить проверку параметра
+		$this->query = $query;
+		return $this;
 	}
 
-	public function withFragment($fragment)
+	/**
+	 * @param string $fragment
+	 * @return $this
+	 */
+	public function withFragment($fragment): self
 	{
-		// TODO: Implement withFragment() method.
+		//TODO добавить проверку параметра
+		$this->fragment = $fragment;
+		return $this;
+
 	}
 
-	public function __toString()
+	/**
+	 * @return string
+	 */
+	public function __toString(): string
 	{
-		// TODO: Implement __toString() method.
+		//TODO добавить проверки
+		$str = '';
+		if ($this->scheme) $str .= $this->scheme . '://';
+		if ($this->user) $str .= $this->user;
+		if ($this->pass) $str .= ':' . $this->pass;
+		if ($this->host) $str .= '@' . $this->host;
+		if ($this->port) $str .= ':' . $this->port;
+		if ($this->path) $str .= '/' . $this->path;
+		if ($this->query) $str .= '?' . $this->query;
+		if ($this->fragment) $str .= '#' . $this->fragment;
+		return $str;
 	}
 }

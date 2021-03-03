@@ -4,79 +4,185 @@
 namespace bru\api\Http;
 
 
+use Psr\Http\Message\MessageInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
 
 class Response implements ResponseInterface
 {
 
-	public function getProtocolVersion()
+	/**
+	 * @var MessageInterface
+	 * Сообщение
+	 */
+	private $message;
+
+	/**
+	 * @var int
+	 * Код ответа
+	 */
+	private $statusCode;
+
+	/**
+	 * @var string
+	 * Строка ответа
+	 */
+	private $reasonPhrase;
+
+	/**
+	 * @return string
+	 */
+	public function getProtocolVersion(): string
 	{
-		// TODO: Implement getProtocolVersion() method.
+		if (isset($this->message)) return $this->message->getProtocolVersion();
+		return '';
 	}
 
-	public function withProtocolVersion($version)
+	/**
+	 * @param string $version
+	 * @return $this
+	 */
+	public function withProtocolVersion($version): self
 	{
-		// TODO: Implement withProtocolVersion() method.
+		if (isset($this->message)) {
+			$this->message->withProtocolVersion($version);
+			return $this;
+		}
+
+		return $this;
 	}
 
-	public function getHeaders()
+	/**
+	 * @return array
+	 */
+	public function getHeaders(): array
 	{
-		// TODO: Implement getHeaders() method.
+		if (isset($this->message)) return $this->message->getHeaders();
+		return [];
 	}
 
-	public function hasHeader($name)
+	/**
+	 * @param string $name
+	 * @return bool
+	 */
+	public function hasHeader($name): bool
 	{
-		// TODO: Implement hasHeader() method.
+		if (isset($this->message) && $this->message->hasHeader($name)) return true;
+		return false;
 	}
 
-	public function getHeader($name)
+	/**
+	 * @param string $name
+	 * @return array
+	 */
+	public function getHeader($name): array
 	{
-		// TODO: Implement getHeader() method.
+		if (isset($this->message)) return $this->message->getHeader($name);
+		return [];
 	}
 
-	public function getHeaderLine($name)
+	/**
+	 * @param string $name
+	 * @return string
+	 */
+	public function getHeaderLine($name): string
 	{
-		// TODO: Implement getHeaderLine() method.
+		if (isset($this->message)) return $this->message->getHeaderLine($name);
+		return '';
 	}
 
-	public function withHeader($name, $value)
+	/**
+	 * @param string $name
+	 * @param string|string[] $value
+	 * @return $this
+	 */
+	public function withHeader($name, $value): self
 	{
-		// TODO: Implement withHeader() method.
+		if (isset($this->message)) {
+			$this->message->withHeader($name, $value);
+			return $this;
+		}
+		return $this;
 	}
 
-	public function withAddedHeader($name, $value)
+	/**
+	 * @param string $name
+	 * @param string|string[] $value
+	 * @return $this
+	 */
+	public function withAddedHeader($name, $value): self
 	{
-		// TODO: Implement withAddedHeader() method.
+		if (isset($this->message)) {
+			$this->message->withAddedHeader($name, $value);
+			return $this;
+		}
+		return $this;
 	}
 
-	public function withoutHeader($name)
+	/**
+	 * @param string $name
+	 * @return $this
+	 */
+	public function withoutHeader($name): self
 	{
-		// TODO: Implement withoutHeader() method.
+		if (isset($this->message))
+		{
+			$this->message->withoutHeader($name);
+			return $this;
+		}
+		return $this;
 	}
 
+	/**
+	 * @return Stream|StreamInterface
+	 */
 	public function getBody()
 	{
-		// TODO: Implement getBody() method.
+		if (isset($this->message)) return $this->message->getBody();
+		return new Stream();
 	}
 
-	public function withBody(StreamInterface $body)
+	/**
+	 * @param StreamInterface $body
+	 * @return $this
+	 */
+	public function withBody(StreamInterface $body): self
 	{
-		// TODO: Implement withBody() method.
+		if (isset($this->message)) {
+			$this->message->withBody($body);
+			return $this;
+		}
+		return $this;
 	}
 
-	public function getStatusCode()
+	/**
+	 * @return int
+	 */
+	public function getStatusCode(): int
 	{
-		// TODO: Implement getStatusCode() method.
+		if (isset($this->statusCode)) return $this->statusCode;
+		return 0;
 	}
 
-	public function withStatus($code, $reasonPhrase = '')
+	/**
+	 * @param int $code
+	 * @param string $reasonPhrase
+	 * @return $this
+	 */
+	public function withStatus($code, $reasonPhrase = ''): self
 	{
-		// TODO: Implement withStatus() method.
+		//TODO добавить проверку кода
+		$this->statusCode = $code;
+		if (isset($reasonPhrase)) $this->reasonPhrase = $reasonPhrase;
+		return $this;
 	}
 
-	public function getReasonPhrase()
+	/**
+	 * @return string
+	 */
+	public function getReasonPhrase(): string
 	{
-		// TODO: Implement getReasonPhrase() method.
+		if (isset($this->reasonPhrase)) return $this->reasonPhrase;
+		return '';
 	}
 }
