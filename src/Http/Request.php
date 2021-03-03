@@ -1,6 +1,6 @@
 <?php
 
-namespace bru\api;
+namespace bru\api\Http;
 
 use InvalidArgumentException;
 use Psr\Http\Message\RequestInterface;

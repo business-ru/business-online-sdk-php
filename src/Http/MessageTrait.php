@@ -1,7 +1,7 @@
 <?php
 
 
-namespace bru\api;
+namespace bru\api\Http;
 
 
 use InvalidArgumentException;

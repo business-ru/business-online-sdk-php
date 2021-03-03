@@ -1,6 +1,6 @@
 <?php
 
-namespace bru\api;
+namespace bru\api\Http;
 
 use InvalidArgumentException;
 use Psr\Http\Message\ResponseInterface;
@@ -86,9 +86,9 @@ final class Responce implements ResponseInterface
 
 
 	/**
-	 * @return int
+	 * @return int|null
 	 */
-	public function getStatusCode(): int
+	public function getStatusCode()
 	{
 		return $this->statusCode;
 	}

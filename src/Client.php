@@ -2,10 +2,12 @@
 
 namespace bru\api;
 
-use bru\api\Http\Message;
-use bru\api\Http\Stream;
+use bru\api\Exception\SimpleFileCacheException;
+use bru\api\Http\Request;
 use Exception;
 use JsonException;
+use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use Psr\Log\LogLevel;
@@ -58,18 +60,26 @@ final class Client implements LoggerAwareInterface
 	 */
 	private $cache;
 
+	/**
+	 * @var ClientInterface
+	 *  Http - клиент
+	 */
+	private $httpClient;
+
 
 	/**
 	 * Client constructor.
 	 * @param string $account Имя аккаунта
 	 * @param int $app_id ID интеграции
 	 * @param string $secret Секретный ключ
-	 * @param CacheInterface|null $cache Объект для кэширования
 	 * @param false $sleepy Засыпать при превышении лимита запросов
+	 * @param CacheInterface|null $cache Объект для кэширования
+	 * @param ClientInterface|null $httpClient
 	 * @throws SimpleFileCacheException
+	 * @throws \Psr\SimpleCache\InvalidArgumentException
 	 * @throws Exception
 	 */
-	public function __construct(string $account, int $app_id, string $secret,bool $sleepy = false, CacheInterface $cache = null)
+	public function __construct(string $account, int $app_id, string $secret,bool $sleepy = false, CacheInterface $cache = null, ClientInterface $httpClient = null)
 	{
 		if (preg_match('~\d{3}\.\d{3}\.\d{3}\.\d{3}~', $account))
 		{
@@ -84,6 +94,9 @@ final class Client implements LoggerAwareInterface
 
 		if (!$cache) $this->cache = new SimpleFileCache();
 		else $this->cache = $cache;
+
+		if (!$httpClient) $this->httpClient = new SimpleHttpClient();
+		else $this->httpClient = $httpClient;
 
 		if ($this->cache->has($this->getCacheKey())) {
 			$this->token = $this->cache->get($this->getCacheKey());
@@ -227,12 +240,12 @@ final class Client implements LoggerAwareInterface
 	 */
 	public function request(string $method, string $model, array $params = [])
 	{
-		$result = $this->Sendrequest($method, $model, $params);
+		$result = $this->SendRequest($method, $model, $params);
 		//Токен не прошел
 		if ($result == 401) {
 			$this->token = $this->getNewToken();
 			$this->cache->set($this->getCacheKey(), $this->token);
-			$result = $this->Sendrequest($method, $model, $params);
+			$result = $this->SendRequest($method, $model, $params);
 		}
 		if ($result == 503 && $this->sleepy)
 		{
@@ -249,17 +262,22 @@ final class Client implements LoggerAwareInterface
 	 * @return mixed
 	 * @throws JsonException
 	 */
-	private function Sendrequest(string $method, string $model, array $params = [])
+	private function SendRequest(string $method, string $model, array $params = []): array
 	{
+		$request = new Request('GET', $this->account . "/api/rest/" . $model . ".json");
 
-		stream_wrapper_register("bru", "bru\api\StreamWrapper");
+		$httpClient = new SimpleHttpClient();
+		$responce = $httpClient->sendRequest($request);
 
-		$stream = new Stream("bru://", 'rb');
+		$result = [];
 
-		$message = new Message();
+		if (!($responce instanceof ResponseInterface))
+		{
+			$this->log(LogLevel::ERROR, 'Результатом обработки HTTP-клиента должна быть производная класса, реализующего Psr\Http\Message\ResponseInterface');
+			return [];
+		}
 
-		$message = $message->withBody($stream);
-
+		return $result;
 //		if (isset($params['images']))
 //			if (is_array($params['images']))
 //				$params['images'] = json_encode($params['images'], JSON_THROW_ON_ERROR);
@@ -349,7 +367,7 @@ final class Client implements LoggerAwareInterface
 			throw new Exception('Время ожидания сброса лимита запросов превышено');
 		}
 		sleep(10);
-		$r = $this->Sendrequest('get', $model, ['count_only' => 1]);
+		$r = $this->SendRequest('get', $model, ['count_only' => 1]);
 		if ($r == 503) $this->rSleep($method, $model, $params);
 	}
 
