@@ -1,44 +1,45 @@
 <?php
 
+namespace bru\api;
 
-namespace bru\api\Http;
-
-
-use http\Exception\RuntimeException;
+use InvalidArgumentException;
 use Psr\Http\Message\StreamInterface;
+use RuntimeException;
 
-class Stream implements StreamInterface
+final class Stream implements StreamInterface
 {
-	/**
-	 * @var StreamInterface
-	 * Поток данных
-	 */
-	private $stream;
 
 	/**
-	 * @var string
-	 * Модификатор доступа
+	 * @var resource|null
 	 */
-	private $mode;
-
-	/**
-	 * @var array
-	 * Метаданные потока
-	 */
-	private $metadata;
+	private $resource;
 
 	/**
 	 * Stream constructor.
-	 * @param StreamInterface $stream
+	 * @param $stream
 	 * @param string $mode
 	 */
-	public function __construct(StreamInterface $stream, string $mode)
+	public function __construct($stream = 'php://temp', string $mode = 'wb+')
 	{
-		//TODO добавить проверку $mode
+		if (is_string($stream)) {
+			$stream = ($stream === '') ? false : @fopen($stream, $mode);
 
-		$this->stream = $stream;
-		$this->mode = $mode;
-		$this->metadata = stream_get_meta_data($this->stream);
+			if ($stream === false) {
+				throw new RuntimeException('Невозможно открыть поток');
+			}
+		}
+
+		if (!is_resource($stream) || get_resource_type($stream) !== 'stream') {
+			throw new InvalidArgumentException(
+				'Поток должен быть передан в виде идентификатора потока или ресурса');
+		}
+
+		$this->resource = $stream;
+	}
+
+	public function __destruct()
+	{
+		$this->close();
 	}
 
 	/**
@@ -46,81 +47,184 @@ class Stream implements StreamInterface
 	 */
 	public function __toString(): string
 	{
-		$this->stream->seek(0);
-		return $this->stream->getContents();
+		if ($this->isSeekable()) {
+			$this->rewind();
+		}
+
+		return $this->getContents();
 	}
 
-	public function close()
+	public function close(): void
 	{
-		// TODO: Implement close() method.
+		if ($this->resource) {
+			$resource = $this->detach();
+			fclose($resource);
+		}
 	}
 
+	/**
+	 * @return resource|null
+	 */
 	public function detach()
 	{
-		// TODO: Implement detach() method.
+		$resource = $this->resource;
+		$this->resource = null;
+		return $resource;
 	}
 
-	public function getSize()
+	/**
+	 * @return int|null
+	 */
+	public function getSize(): ?int
 	{
-		// TODO: Implement getSize() method.
+		if ($this->resource === null) {
+			return null;
+		}
+
+		$stats = fstat($this->resource);
+		return isset($stats['size']) ? (int) $stats['size'] : null;
 	}
 
 	public function tell()
 	{
-		// TODO: Implement tell() method.
+		if (!$this->resource) {
+			throw new RuntimeException('Нет ресурса для указания текущей позиции');
+		}
+
+		if (!is_int($result = ftell($this->resource))) {
+			throw new RuntimeException('Ошибка определения позиции указателя');
+		}
+
+		return $result;
 	}
 
-	public function eof()
+	/**
+	 * @return bool
+	 */
+	public function eof(): bool
 	{
-		// TODO: Implement eof() method.
+		return (!$this->resource || feof($this->resource));
 	}
 
-	public function isSeekable()
+	/**
+	 * @return bool
+	 */
+	public function isSeekable(): bool
 	{
-		// TODO: Implement isSeekable() method.
+		return ($this->resource && $this->getMetadata('seekable'));
 	}
 
-	public function seek($offset, $whence = SEEK_SET)
+	/**
+	 * @param int $offset
+	 * @param int $whence
+	 */
+	public function seek($offset, $whence = SEEK_SET): void
 	{
-		// TODO: Implement seek() method.
+		if (!$this->resource) {
+			throw new RuntimeException('Нет ресурса для изменения позиции указателя');
+		}
+
+		if (!$this->isSeekable()) {
+			throw new RuntimeException('Stream is not seekable.');
+		}
+
+		if (fseek($this->resource, $offset, $whence) !== 0) {
+			throw new RuntimeException('Error seeking within stream.');
+		}
 	}
 
-	public function rewind()
+	public function rewind(): void
 	{
-		// TODO: Implement rewind() method.
+		$this->seek(0);
 	}
 
-	public function isWritable()
+	/**
+	 * @return bool
+	 */
+	public function isWritable(): bool
 	{
-		// TODO: Implement isWritable() method.
+		if (!is_string($mode = $this->getMetadata('mode'))) {
+			return false;
+		}
+
+		return (
+			strpos($mode, 'w') !== false
+			|| strpos($mode, '+') !== false
+			|| strpos($mode, 'x') !== false
+			|| strpos($mode, 'c') !== false
+			|| strpos($mode, 'a') !== false
+		);
 	}
 
+	/**
+	 * @param string $string
+	 * @return false|int
+	 */
 	public function write($string)
 	{
-		// TODO: Implement write() method.
+		if (!$this->resource) {
+			throw new RuntimeException('Нет ресурса для записи');
+		}
+
+		if (!$this->isWritable()) {
+			throw new RuntimeException('Невозможно записать данные в поток');
+		}
+
+		if (!is_int($result = fwrite($this->resource, $string))) {
+			throw new RuntimeException('Ошибка записи в поток');
+		}
+
+		return $result;
 	}
 
-	public function isReadable()
+	/**
+	 * @return bool
+	 */
+	public function isReadable(): bool
 	{
-		// TODO: Implement isReadable() method.
+		if (!is_string($mode = $this->getMetadata('mode'))) {
+			return false;
+		}
+
+		return (strpos($mode, 'r') !== false || strpos($mode, '+') !== false);
 	}
 
+	/**
+	 * @param int $length
+	 * @return false|string
+	 */
 	public function read($length)
 	{
-		// TODO: Implement read() method.
-	}
+		if (!$this->resource) {
+			throw new RuntimeException('Нет ресурса для чтения');
+		}
 
+		if (!$this->isReadable()) {
+			throw new RuntimeException('Невозможно прочитать данные из потока');
+		}
+
+		if (!is_string($result = fread($this->resource, $length))) {
+			throw new RuntimeException('Ошибка чтения из потока');
+		}
+
+		return $result;
+	}
 
 	/**
 	 * @return false|string
 	 */
 	public function getContents()
 	{
-		if ($c = stream_get_contents($this->stream)) return $c;
-		throw new RuntimeException('Нет прав для чтения потока');
-		return '';
-	}
+		if (!$this->isReadable()) {
+			throw new RuntimeException('Невозможно прочитать данные из потока');
+		}
 
+		if (!is_string($result = stream_get_contents($this->resource))) {
+			throw new RuntimeException('Error reading stream.');
+		}
+
+		return $result;
+	}
 
 	/**
 	 * @param null $key
@@ -128,8 +232,20 @@ class Stream implements StreamInterface
 	 */
 	public function getMetadata($key = null)
 	{
-		if (is_null($key)) return $this->metadata;
-		if (isset($this->metadata[$key])) return $this->metadata[$key];
+		if (!$this->resource) {
+			return $key ? null : [];
+		}
+
+		$metadata = stream_get_meta_data($this->resource);
+
+		if ($key === null) {
+			return $metadata;
+		}
+
+		if (array_key_exists($key, $metadata)) {
+			return $metadata[$key];
+		}
+
 		return null;
 	}
 }

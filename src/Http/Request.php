@@ -1,177 +1,111 @@
 <?php
 
+namespace bru\api;
 
-namespace bru\api\Http;
-
-
-use Psr\Http\Message\MessageInterface;
+use InvalidArgumentException;
 use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UriInterface;
 
-class Request implements RequestInterface
+final class Request implements RequestInterface
 {
-
-	/**
-	 * @var MessageInterface
-	 * Сообщение
-	 */
-	private $message;
+	use MessageTrait;
 
 	/**
 	 * @var string
-	 * Адрес запроса
 	 */
-	private $requestTarget;
+	private $method = 'GET';
 
 	/**
-	 * @var string
-	 * Метод запроса
+	 * @var string|null
 	 */
-	private $method;
+	private $requestTarget = null;
 
 	/**
 	 * @var UriInterface
-	 * URI запроса
 	 */
 	private $uri;
 
 	/**
-	 * @return string
+	 * Request constructor.
+	 * @param string $method
+	 * @param string $uri
+	 * @param array $headers
+	 * @param null $body
+	 * @param string $protocol
 	 */
-	public function getProtocolVersion(): string
+	public function __construct(string $method = 'GET', $uri = '', array $headers = [], $body = null, string $protocol = '1.1')
 	{
-		if (isset($this->message)) return $this->message->getProtocolVersion();
-		return '';
-	}
+		$this->method = $method;
+		$this->setUri($uri);
+		$this->registerStream($body);
+		$this->registerHeaders($headers);
+		$this->registerProtocolVersion($protocol);
 
-	public function withProtocolVersion($version): self
-	{
-		if (isset($this->message)) $this->message->withProtocolVersion($version);
-		return $this;
-	}
-
-	/**
-	 * @return array
-	 */
-	public function getHeaders(): array
-	{
-		if (isset($this->message)) return $this->message->getHeaders();
-		return [];
-	}
-
-	/**
-	 * @param string $name
-	 * @return bool
-	 */
-	public function hasHeader($name): bool
-	{
-		if (isset($this->message) && $this->message->hasHeader($name)) return true;
-		return false;
-	}
-
-	/**
-	 * @param string $name
-	 * @return array
-	 */
-	public function getHeader($name): array
-	{
-		if (isset($this->message)) return $this->message->getHeader($name);
-		return [];
-	}
-
-	/**
-	 * @param string $name
-	 * @return string
-	 */
-	public function getHeaderLine($name): string
-	{
-		if (isset($this->message)) return $this->message->getHeaderLine();
-		return '';
-	}
-
-	/**
-	 * @param string $name
-	 * @param string|string[] $value
-	 * @return $this
-	 */
-	public function withHeader($name, $value): self
-	{
-		if (isset($this->message)) {
-			$this->message->withHeader($name, $value);
-			return $this;
-	}
-		return $this;
-	}
-
-	/**
-	 * @param string $name
-	 * @param string|string[] $value
-	 * @return $this
-	 */
-	public function withAddedHeader($name, $value): self
-	{
-		if (isset($this->message)) {
-			$this->message->withHeader($name, $value);
-			return $this;
+		if (!$this->hasHeader('host')) {
+			$this->updateHostHeaderFromUri();
 		}
-		return $this;
 	}
 
 	/**
-	 * @param string $name
-	 * @return $this
+	 * @param $uri
 	 */
-	public function withoutHeader($name): self
+	private function setUri($uri): void
 	{
-		if (isset($this->message)) {
-			$this->message->withoutHeader($name);
-			return $this;
+		if ($uri instanceof UriInterface) {
+			$this->uri = $uri;
+			return;
 		}
-		return $this;
+
+		if (is_string($uri)) {
+			$this->uri = new Uri($uri);
+			return;
+		}
+
+		throw new InvalidArgumentException(sprintf(
+			'Неверный формат URI - "%s". URI должен быть строкой, null либо реализовывать интерфейс "\Psr\Http\Message\UriInterface".',
+			(is_object($uri) ? get_class($uri) : gettype($uri))
+		));
 	}
 
 	/**
-	 * @return object
-	 */
-	public function getBody(): object
-	{
-		if (isset($this->message)) {
-			return $this->message->getBody();
-		}
-		return new Stream();
-	}
-
-	/**
-	 * @param StreamInterface $body
-	 * @return $this
-	 */
-	public function withBody(StreamInterface $body): self
-	{
-		if (isset($this->message)) {
-			$this->message->withBody($body);
-			return $this;
-		}
-		return $this;
-	}
-
-	/**
-	 * @return string
+	 * @return string|null
 	 */
 	public function getRequestTarget(): string
 	{
-		if (!isset($this->requestTarget)) return '';
-		return $this->requestTarget;
+		if ($this->requestTarget !== null) {
+			return $this->requestTarget;
+		}
+
+		$target = $this->uri->getPath();
+		$query = $this->uri->getQuery();
+
+		if ($target !== '' && $query !== '') {
+			$target .= '?' . $query;
+		}
+
+		return $target ?: '/';
 	}
 
 	/**
 	 * @param mixed $requestTarget
-	 * @return $this
+	 * @return $this|Request
 	 */
-	public function withRequestTarget($requestTarget): self
+	public function withRequestTarget($requestTarget)
 	{
-		$this->requestTarget = $requestTarget;
-		return $this;
+		if ($requestTarget === $this->requestTarget) {
+			return $this;
+		}
+
+		if (!is_string($requestTarget) || preg_match('/\s/', $requestTarget)) {
+			throw new InvalidArgumentException(sprintf(
+				'Неверная цель запроса - "%s". Цель запроса должна быть строкой и не может содержать пробелы',
+				(is_object($requestTarget) ? get_class($requestTarget) : gettype($requestTarget))
+			));
+		}
+
+		$new = clone $this;
+		$new->requestTarget = $requestTarget;
+		return $new;
 	}
 
 	/**
@@ -179,18 +113,29 @@ class Request implements RequestInterface
 	 */
 	public function getMethod(): string
 	{
-		if (isset($this->method)) return $this->method;
-		return '';
+		return $this->method;
 	}
 
 	/**
 	 * @param string $method
 	 * @return $this
 	 */
-	public function withMethod($method): self
+	public function withMethod($method): Request
 	{
-		$this->method = $method;
-		return $this;
+		if ($method === $this->method) {
+			return $this;
+		}
+
+		if (!is_string($method)) {
+			throw new InvalidArgumentException(sprintf(
+				'Неверный метод. Метод должен быть строкой, получен - %s.',
+				(is_object($method) ? get_class($method) : gettype($method))
+			));
+		}
+
+		$new = clone $this;
+		$new->method = $method;
+		return $new;
 	}
 
 	/**
@@ -198,8 +143,7 @@ class Request implements RequestInterface
 	 */
 	public function getUri(): UriInterface
 	{
-		if (isset($this->uri)) return $this->uri;
-		return new Uri();
+		return $this->uri;
 	}
 
 	/**
@@ -207,10 +151,35 @@ class Request implements RequestInterface
 	 * @param false $preserveHost
 	 * @return $this
 	 */
-	public function withUri(UriInterface $uri, $preserveHost = false): self
+	public function withUri(UriInterface $uri, $preserveHost = false): Request
 	{
-		//TODO добавить обработку $preserveHost
-		$this->uri = $uri;
-		return $this;
+		if ($uri === $this->uri) {
+			return $this;
+		}
+
+		$new = clone $this;
+		$new->uri = $uri;
+
+		if (!$preserveHost || !$this->hasHeader('host')) {
+			$new->updateHostHeaderFromUri();
+		}
+
+		return $new;
+	}
+
+	private function updateHostHeaderFromUri(): void
+	{
+		$host = $this->uri->getHost();
+
+		if ($host === '') {
+			return;
+		}
+
+		if ($port = $this->uri->getPort()) {
+			$host .= ':' . $port;
+		}
+
+		$this->headerNames['host'] ?: 'Host';
+		$this->headers = [$this->headerNames['host'] => [$host]] + $this->headers;
 	}
 }

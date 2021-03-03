@@ -1,163 +1,383 @@
 <?php
 
+namespace bru\api;
 
-namespace bru\api\Http;
-
-
+use InvalidArgumentException;
 use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Message\StreamInterface;
+use Psr\Http\Message\UploadedFileInterface;
 use Psr\Http\Message\UriInterface;
 
-class ServerRequest implements ServerRequestInterface
+final class ServerRequest implements ServerRequestInterface
 {
+	use MessageTrait;
 
-	public function getProtocolVersion()
+	/**
+	 * @var array
+	 */
+	private $attributes = [];
+
+	/**
+	 * @var array
+	 */
+	private $cookieParams = [];
+
+	/**
+	 * @var array|object|null
+	 */
+	private $parsedBody;
+
+	/**
+	 * @var array
+	 */
+	private $queryParams;
+
+	/**
+	 * @var array
+	 */
+	private $serverParams;
+
+	/**
+	 * @var array
+	 */
+	private $uploadedFiles;
+
+	/**
+	 * @var string
+	 */
+	private $method = 'GET';
+
+	/**
+	 * @var UriInterface
+	 */
+	private $uri;
+
+	/**
+	 * @var null
+	 */
+	private $requestTarget = null;
+
+	public function __construct(
+		array $serverParams = [],
+		array $uploadedFiles = [],
+		array $cookieParams = [],
+		array $queryParams = [],
+		$parsedBody = null,
+		string $method = 'GET',
+		$uri = '',
+		array $headers = [],
+		$body = null,
+		string $protocol = '1.1'
+	)
 	{
-		// TODO: Implement getProtocolVersion() method.
+		$this->validateUploadedFiles($uploadedFiles);
+		$this->uploadedFiles = $uploadedFiles;
+		$this->serverParams = $serverParams;
+		$this->cookieParams = $cookieParams;
+		$this->queryParams = $queryParams;
+		$this->parsedBody = $parsedBody;
+		$this->method = $method;
+		$this->setUri($uri);
+
+		$this->registerStream($body);
+		$this->registerHeaders($headers);
+		$this->registerProtocolVersion($protocol);
+
+		if (!$this->hasHeader('host')) {
+			$this->updateHostHeaderFromUri();
+		}
 	}
 
-	public function withProtocolVersion($version)
+	/**
+	 * @return string
+	 */
+	public function getRequestTarget(): string
 	{
-		// TODO: Implement withProtocolVersion() method.
+		if ($this->requestTarget !== null) {
+			return $this->requestTarget;
+		}
+
+		$target = $this->uri->getPath();
+		$query = $this->uri->getQuery();
+
+		if ($target !== '' && $query !== '') {
+			$target .= '?' . $query;
+		}
+
+		return $target ?: '/';
 	}
 
-	public function getHeaders()
+	/**
+	 * @param mixed $requestTarget
+	 * @return $this
+	 */
+	public function withRequestTarget($requestTarget): ServerRequest
 	{
-		// TODO: Implement getHeaders() method.
+		if ($requestTarget === $this->requestTarget) {
+			return $this;
+		}
+
+		if (!is_string($requestTarget) || preg_match('/\s/', $requestTarget)) {
+			throw new InvalidArgumentException(sprintf(
+				'Неверная цель запроса - "%s". Цель запроса должна быть строкой и не может содержать пробелы',
+				(is_object($requestTarget) ? get_class($requestTarget) : gettype($requestTarget))
+			));
+		}
+
+		$new = clone $this;
+		$new->requestTarget = $requestTarget;
+		return $new;
 	}
 
-	public function hasHeader($name)
+	/**
+	 * @return string
+	 */
+	public function getMethod(): string
 	{
-		// TODO: Implement hasHeader() method.
+		return $this->method;
 	}
 
-	public function getHeader($name)
+	/**
+	 * @param string $method
+	 * @return string
+	 */
+	public function withMethod($method): string
 	{
-		// TODO: Implement getHeader() method.
-	}
+		if ($method === $this->method) {
+			return $this;
+		}
 
-	public function getHeaderLine($name)
-	{
-		// TODO: Implement getHeaderLine() method.
-	}
+		if (!is_string($method)) {
+			throw new InvalidArgumentException(sprintf(
+				'Неверный метод. Метод должен быть строкой, получен - %s.',
+				(is_object($method) ? get_class($method) : gettype($method))
+			));
+		}
 
-	public function withHeader($name, $value)
-	{
-		// TODO: Implement withHeader() method.
-	}
-
-	public function withAddedHeader($name, $value)
-	{
-		// TODO: Implement withAddedHeader() method.
-	}
-
-	public function withoutHeader($name)
-	{
-		// TODO: Implement withoutHeader() method.
-	}
-
-	public function getBody()
-	{
-		// TODO: Implement getBody() method.
-	}
-
-	public function withBody(StreamInterface $body)
-	{
-		// TODO: Implement withBody() method.
-	}
-
-	public function getRequestTarget()
-	{
-		// TODO: Implement getRequestTarget() method.
-	}
-
-	public function withRequestTarget($requestTarget)
-	{
-		// TODO: Implement withRequestTarget() method.
-	}
-
-	public function getMethod()
-	{
-		// TODO: Implement getMethod() method.
-	}
-
-	public function withMethod($method)
-	{
-		// TODO: Implement withMethod() method.
+		$new = clone $this;
+		$new->method = $method;
+		return $new;
 	}
 
 	public function getUri()
 	{
-		// TODO: Implement getUri() method.
+		return $this->uri;
 	}
 
-	public function withUri(UriInterface $uri, $preserveHost = false)
+	/**
+	 * @param UriInterface $uri
+	 * @param false $preserveHost
+	 * @return $this
+	 */
+	public function withUri(UriInterface $uri, $preserveHost = false): ServerRequest
 	{
-		// TODO: Implement withUri() method.
+		if ($uri === $this->uri) {
+			return $this;
+		}
+
+		$new = clone $this;
+		$new->uri = $uri;
+
+		if (!$preserveHost || !$this->hasHeader('host')) {
+			$new->updateHostHeaderFromUri();
+		}
+
+		return $new;
 	}
 
-	public function getServerParams()
+	/**
+	 * @return array
+	 */
+	public function getServerParams(): array
 	{
-		// TODO: Implement getServerParams() method.
+		return $this->serverParams;
 	}
 
-	public function getCookieParams()
+	/**
+	 * @return array
+	 */
+	public function getCookieParams(): array
 	{
-		// TODO: Implement getCookieParams() method.
+		return $this->cookieParams;
 	}
 
-	public function withCookieParams(array $cookies)
+	/**
+	 * @param array $cookies
+	 * @return ServerRequest
+	 */
+	public function withCookieParams(array $cookies): ServerRequest
 	{
-		// TODO: Implement withCookieParams() method.
+		$new = clone $this;
+		$new->cookieParams = $cookies;
+		return $new;
 	}
 
-	public function getQueryParams()
+	/**
+	 * @return array
+	 */
+	public function getQueryParams(): array
 	{
-		// TODO: Implement getQueryParams() method.
+		return $this->queryParams;
 	}
 
-	public function withQueryParams(array $query)
+	/**
+	 * @param array $query
+	 * @return ServerRequest
+	 */
+	public function withQueryParams(array $query): ServerRequest
 	{
-		// TODO: Implement withQueryParams() method.
+		$new = clone $this;
+		$new->queryParams = $query;
+		return $new;
 	}
 
-	public function getUploadedFiles()
+	/**
+	 * @return array
+	 */
+	public function getUploadedFiles(): array
 	{
-		// TODO: Implement getUploadedFiles() method.
+		return $this->uploadedFiles;
 	}
 
-	public function withUploadedFiles(array $uploadedFiles)
+	/**
+	 * @param array $uploadedFiles
+	 * @return ServerRequest
+	 */
+	public function withUploadedFiles(array $uploadedFiles): ServerRequest
 	{
-		// TODO: Implement withUploadedFiles() method.
+		$this->validateUploadedFiles($uploadedFiles);
+		$new = clone $this;
+		$new->uploadedFiles = $uploadedFiles;
+		return $new;
 	}
 
+	/**
+	 * @return array|mixed|object|null
+	 */
 	public function getParsedBody()
 	{
-		// TODO: Implement getParsedBody() method.
+		return $this->parsedBody;
 	}
 
-	public function withParsedBody($data)
+	/**
+	 * @param array|object|null $data
+	 * @return ServerRequest
+	 */
+	public function withParsedBody($data): ServerRequest
 	{
-		// TODO: Implement withParsedBody() method.
+		if (!is_array($data) && !is_object($data) && $data !== null) {
+			throw new InvalidArgumentException(sprintf(
+				'Неверныe параметры запроса - "%s". Параметры запроса должны быть объектом, массивом либо null.',
+				gettype($data)
+			));
+		}
+
+		$new = clone $this;
+		$new->parsedBody = $data;
+		return $new;
 	}
 
 	public function getAttributes()
 	{
-		// TODO: Implement getAttributes() method.
+		return $this->attributes;
 	}
 
+	/**
+	 * @param string $name
+	 * @param null $default
+	 * @return mixed|null
+	 */
 	public function getAttribute($name, $default = null)
 	{
-		// TODO: Implement getAttribute() method.
+		if (array_key_exists($name, $this->attributes)) {
+			return $this->attributes[$name];
+		}
+
+		return $default;
 	}
 
-	public function withAttribute($name, $value)
+	/**
+	 * @param string $name
+	 * @param mixed $value
+	 * @return $this
+	 */
+	public function withAttribute($name, $value): ServerRequest
 	{
-		// TODO: Implement withAttribute() method.
+		if (array_key_exists($name, $this->attributes) && $this->attributes[$name] === $value) {
+			return $this;
+		}
+
+		$new = clone $this;
+		$new->attributes[$name] = $value;
+		return $new;
 	}
 
-	public function withoutAttribute($name)
+	/**
+	 * @param string $name
+	 * @return $this
+	 */
+	public function withoutAttribute($name): ServerRequest
 	{
-		// TODO: Implement withoutAttribute() method.
+		if (!array_key_exists($name, $this->attributes)) {
+			return $this;
+		}
+
+		$new = clone $this;
+		unset($new->attributes[$name]);
+		return $new;
+	}
+
+	private function setUri($uri): void
+	{
+		if ($uri instanceof UriInterface) {
+			$this->uri = $uri;
+			return;
+		}
+
+		if (is_string($uri)) {
+			$this->uri = new Uri($uri);
+			return;
+		}
+
+		throw new InvalidArgumentException(sprintf(
+			'Неверный формат URI - "%s". URI должен быть строкой, null либо реализовывать интерфейс "\Psr\Http\Message\UriInterface".',
+			(is_object($uri) ? get_class($uri) : gettype($uri))
+		));
+	}
+
+	private function updateHostHeaderFromUri(): void
+	{
+		$host = $this->uri->getHost();
+
+		if ($host === '') {
+			return;
+		}
+
+		if ($port = $this->uri->getPort()) {
+			$host .= ':' . $port;
+		}
+
+		$this->headerNames['host'] ?: 'Host';
+		$this->headers = [$this->headerNames['host'] => [$host]] + $this->headers;
+	}
+
+	/**
+	 * @param array $uploadedFiles
+	 */
+	private function validateUploadedFiles(array $uploadedFiles): void
+	{
+		foreach ($uploadedFiles as $file) {
+			if (is_array($file)) {
+				$this->validateUploadedFiles($file);
+				continue;
+			}
+
+			if (!UploadedFileInterface instanceof $file) {
+				throw new InvalidArgumentException(sprintf(
+					'Неверный объект в структуре загружаемых файлов.'
+					. '"%s" не реализует интерфейс "\Psr\Http\Message\UploadedFileInterface".',
+					(is_object($file) ? get_class($file) : gettype($file))
+				));
+			}
+		}
 	}
 }

@@ -2,6 +2,8 @@
 
 namespace bru\api;
 
+use bru\api\Http\Message;
+use bru\api\Http\Stream;
 use Exception;
 use JsonException;
 use Psr\Log\LoggerAwareInterface;
@@ -249,78 +251,87 @@ final class Client implements LoggerAwareInterface
 	 */
 	private function Sendrequest(string $method, string $model, array $params = [])
 	{
-		if (isset($params['images']))
-			if (is_array($params['images']))
-				$params['images'] = json_encode($params['images'], JSON_THROW_ON_ERROR);
 
-		$params['app_id'] = $this->app_id;
-		ksort($params);
-		array_walk_recursive($params, function (&$val, $key) {
-			if (is_null($val)) {
-				$val = '';
-			}
-		});
-		$params_string = http_build_query($params);
-		$params = array();
-		$params['app_psw'] = MD5($this->token . $this->secret . $params_string);
+		stream_wrapper_register("bru", "bru\api\StreamWrapper");
 
-		$params_string .= '&' . http_build_query($params);
-		$url = $this->account . "/api/rest/" . $model . ".json";
+		$stream = new Stream("bru://", 'rb');
 
-		$c = curl_init();
+		$message = new Message();
 
-		if ($method === 'post') {
-			curl_setopt($c, CURLOPT_URL, $url);
-			curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
-			curl_setopt($c, CURLOPT_POST, true);
-			curl_setopt($c, CURLOPT_POSTFIELDS, $params_string);
-		} else if ($method === 'get') {
-			curl_setopt($c, CURLOPT_URL, $url . '?' . $params_string);
-			curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
-		} else if ($method === 'put') {
-			curl_setopt($c, CURLOPT_URL, $url);
-			curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
-			curl_setopt($c, CURLOPT_CUSTOMREQUEST, 'PUT');
-			curl_setopt($c, CURLOPT_POSTFIELDS, $params_string);
-		} else if ($method === 'delete') {
-			curl_setopt($c, CURLOPT_URL, $url);
-			curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
-			curl_setopt($c, CURLOPT_CUSTOMREQUEST, 'DELETE');
-			curl_setopt($c, CURLOPT_POSTFIELDS, $params_string);
-		}
+		$message = $message->withBody($stream);
 
-		$result = curl_exec($c);
-
-		$status_code = curl_getinfo($c, CURLINFO_HTTP_CODE);
-		curl_close($c);
-
-		if ($status_code == 200) {
-			$this->log(LogLevel::INFO, 'Запрос выполнен успешно', ['method' => $method, 'model' => $model, 'params' => $params]);
-			$result = json_decode($result, true, 2048, JSON_THROW_ON_ERROR);
-			$app_psw = $result['app_psw'];
-			unset($result['app_psw']);
-
-			if (MD5($this->token . $this->secret . json_encode($result)) == $app_psw) {
-				$this->log(LogLevel::INFO, 'Токен прошел проверку');
-				return ($result);
-			}
-
-			$this->log(LogLevel::ERROR, 'Ошибка авторизации', ['method' => $method, 'model' => $model, 'params' => $params]);
-			return ["status" => "error",
-				"error_code" => "auth:1",
-				"error_text" => "Ошибка авторизации"];
-		}
-
-		if ($status_code == 401) {
-			$this->log(LogLevel::INFO, 'Токен просрочен');
-			return 401;
-		}
-
-		if ($status_code == 503) {
-			$this->log(LogLevel::INFO, 'Превышен лимит запросов');
-			return 503;
-		}
-		return ["status" => "error", "error_code" => "http:" . $status_code];
+//		if (isset($params['images']))
+//			if (is_array($params['images']))
+//				$params['images'] = json_encode($params['images'], JSON_THROW_ON_ERROR);
+//
+//		$params['app_id'] = $this->app_id;
+//		ksort($params);
+//		array_walk_recursive($params, function (&$val, $key) {
+//			if (is_null($val)) {
+//				$val = '';
+//			}
+//		});
+//		$params_string = http_build_query($params);
+//		$params = array();
+//		$params['app_psw'] = MD5($this->token . $this->secret . $params_string);
+//
+//		$params_string .= '&' . http_build_query($params);
+//		$url = $this->account . "/api/rest/" . $model . ".json";
+//
+//		$c = curl_init();
+//
+//		if ($method === 'post') {
+//			curl_setopt($c, CURLOPT_URL, $url);
+//			curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
+//			curl_setopt($c, CURLOPT_POST, true);
+//			curl_setopt($c, CURLOPT_POSTFIELDS, $params_string);
+//		} else if ($method === 'get') {
+//			curl_setopt($c, CURLOPT_URL, $url . '?' . $params_string);
+//			curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
+//		} else if ($method === 'put') {
+//			curl_setopt($c, CURLOPT_URL, $url);
+//			curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
+//			curl_setopt($c, CURLOPT_CUSTOMREQUEST, 'PUT');
+//			curl_setopt($c, CURLOPT_POSTFIELDS, $params_string);
+//		} else if ($method === 'delete') {
+//			curl_setopt($c, CURLOPT_URL, $url);
+//			curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
+//			curl_setopt($c, CURLOPT_CUSTOMREQUEST, 'DELETE');
+//			curl_setopt($c, CURLOPT_POSTFIELDS, $params_string);
+//		}
+//
+//		$result = curl_exec($c);
+//
+//		$status_code = curl_getinfo($c, CURLINFO_HTTP_CODE);
+//		curl_close($c);
+//
+//		if ($status_code == 200) {
+//			$this->log(LogLevel::INFO, 'Запрос выполнен успешно', ['method' => $method, 'model' => $model, 'params' => $params]);
+//			$result = json_decode($result, true, 2048, JSON_THROW_ON_ERROR);
+//			$app_psw = $result['app_psw'];
+//			unset($result['app_psw']);
+//
+//			if (MD5($this->token . $this->secret . json_encode($result)) == $app_psw) {
+//				$this->log(LogLevel::INFO, 'Токен прошел проверку');
+//				return ($result);
+//			}
+//
+//			$this->log(LogLevel::ERROR, 'Ошибка авторизации', ['method' => $method, 'model' => $model, 'params' => $params]);
+//			return ["status" => "error",
+//				"error_code" => "auth:1",
+//				"error_text" => "Ошибка авторизации"];
+//		}
+//
+//		if ($status_code == 401) {
+//			$this->log(LogLevel::INFO, 'Токен просрочен');
+//			return 401;
+//		}
+//
+//		if ($status_code == 503) {
+//			$this->log(LogLevel::INFO, 'Превышен лимит запросов');
+//			return 503;
+//		}
+//		return ["status" => "error", "error_code" => "http:" . $status_code];
 	}
 
 	/**
