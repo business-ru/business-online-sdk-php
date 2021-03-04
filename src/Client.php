@@ -9,7 +9,6 @@ use bru\api\Http\Uri;
 use Exception;
 use JsonException;
 use Psr\Http\Client\ClientInterface;
-use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use Psr\Log\LogLevel;
@@ -269,6 +268,7 @@ final class Client implements LoggerAwareInterface
 			$this->rSleep($method, $model, $params);
 			$result = $this->request($method, $model, $params);
 		}
+		if (is_array($result['result'])) $this->log(LogLevel::INFO, 'Количество записей в ответе: ' . count($result['result']));
 		return $result;
 	}
 
@@ -389,34 +389,18 @@ final class Client implements LoggerAwareInterface
 	 */
 	private function getNewToken()
 	{
-		$params = [];
-		$params['app_id'] = $this->app_id;
-		ksort($params);
-		$params_string = http_build_query($params);
-		$params = [];
-		$params['app_psw'] = MD5($this->secret . $params_string);
+		$result = $this->SendRequest('get', 'repair');
 
-		$params_string .= '&' . http_build_query($params);
-		$url = $this->account . "/api/rest/repair.json";
-
-		$c = curl_init();
-		curl_setopt($c, CURLOPT_URL, $url . '?' . $params_string);
-		curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
-		$result = curl_exec($c);
-		$status_code = curl_getinfo($c, CURLINFO_HTTP_CODE);
-		curl_close($c);
-
-		if ($status_code == 200) {
+		if ($result['token'] && strlen($result['token']) === 32)
+		{
 			$this->log(LogLevel::INFO, 'Получен новый токен');
-			$result = json_decode($result, true);
-			unset($result['app_psw']);
 			return $result['token'];
 		}
 
-		$this->log(LogLevel::ERROR, 'Не удалось получить токен. Код ошибки: ' . $status_code);
+		$this->log(LogLevel::ERROR, 'Не удалось получить токен. Код ошибки: ');
 		return [
 			"status" => "error",
-			"error_code" => "http:" . $status_code
+			"error_code" => "http: 401"
 		];
 	}
 

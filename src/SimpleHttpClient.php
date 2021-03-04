@@ -5,10 +5,10 @@ namespace bru\api;
 
 use bru\api\Http\Responce;
 use bru\api\Http\Stream;
-use http\Exception\RuntimeException;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use RuntimeException;
 
 class SimpleHttpClient implements ClientInterface
 {
@@ -19,7 +19,6 @@ class SimpleHttpClient implements ClientInterface
 	 */
 	public function sendRequest(RequestInterface $request): ResponseInterface
 	{
-
 		$c = curl_init();
 
 		$url = (string)$request->getUri();
@@ -27,6 +26,11 @@ class SimpleHttpClient implements ClientInterface
 
 		$params_string = $request->getUri()->getQuery();
 
+		if ($method !== 'GET')
+		{
+			$request->getBody()->seek(0);
+			$params_string = $request->getBody()->getContents();
+		}
 		if ($method === 'POST') {
 			curl_setopt($c, CURLOPT_URL, $url);
 			curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
@@ -59,6 +63,7 @@ class SimpleHttpClient implements ClientInterface
 
 		$responce = $responce->withStatus($status_code);
 		$responce = $responce->withBody($stream);
+
 		curl_close($c);
 
 		return $responce;
