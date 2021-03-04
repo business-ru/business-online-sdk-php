@@ -4,6 +4,8 @@ namespace bru\api;
 
 use bru\api\Exception\SimpleFileCacheException;
 use bru\api\Http\Request;
+use bru\api\Http\Stream;
+use bru\api\Http\Uri;
 use Exception;
 use JsonException;
 use Psr\Http\Client\ClientInterface;
@@ -66,6 +68,16 @@ final class Client implements LoggerAwareInterface
 	 */
 	private $httpClient;
 
+	/**
+	 * @var string
+	 */
+	private $host;
+
+	/**
+	 * @var int
+	 */
+	private $port = 0;
+
 
 	/**
 	 * Client constructor.
@@ -84,8 +96,13 @@ final class Client implements LoggerAwareInterface
 		if (preg_match('~\d{3}\.\d{3}\.\d{3}\.\d{3}~', $account))
 		{
 			$this->account = trim($account, '/');
+			preg_match('~\d{3}\.\d{3}\.\d{3}\.\d{3}~', $account, $host);
+			preg_match('~:\d.*~', $account, $port);
+			$this->port = ltrim($port[0], ':') ?? 0;
+			$this->host = $host[0];
 		} else {
 			$this->account = 'https://' . $account . '.business.ru';
+			$this->host = $account . '.business.ru';
 		}
 
 		$this->app_id = $app_id;
@@ -260,96 +277,91 @@ final class Client implements LoggerAwareInterface
 	 * @param string $method Метод (get, post, put, delete)
 	 * @param array $params Параметры
 	 * @return mixed
+	 * @throws \Psr\Http\Client\ClientExceptionInterface
 	 * @throws JsonException
 	 */
-	private function SendRequest(string $method, string $model, array $params = []): array
+	private function SendRequest(string $method, string $model, array $params = [])
 	{
-		$request = new Request('GET', $this->account . "/api/rest/" . $model . ".json");
 
-		$httpClient = new SimpleHttpClient();
-		$responce = $httpClient->sendRequest($request);
+		$request = new Request();
+		$uri = new Uri();
+		$stream = new Stream('php://temp/bruapi/request', 'w+');
 
-		$result = [];
+		preg_match('~^\w*~', $this->account, $scheme);
+		$uri = $uri->withScheme($scheme[0]);
+		$uri = $uri->withHost($this->host);
+		$uri = $uri->withPath('api/rest/' . $model . '.json');
+		$request = $request->withRequestTarget('api/rest/' . $model . '.json');
 
-		if (!($responce instanceof ResponseInterface))
-		{
-			$this->log(LogLevel::ERROR, 'Результатом обработки HTTP-клиента должна быть производная класса, реализующего Psr\Http\Message\ResponseInterface');
-			return [];
+		if (!$this->port) {
+			if ($scheme === 'http') $uri = $uri->withPort(80);
+			if ($scheme === 'https') $uri = $uri->withPort(443);
+		} else $uri = $uri->withPort($this->port);
+
+		if (isset($params['images']))
+			if (is_array($params['images']))
+				$params['images'] = json_encode($params['images'], JSON_THROW_ON_ERROR);
+
+		$params['app_id'] = $this->app_id;
+		ksort($params);
+		array_walk_recursive($params, function (&$val) {
+			if (is_null($val)) {
+				$val = '';
+			}});
+		$params_string = http_build_query($params);
+
+		$params = array();
+		$params['app_psw'] = MD5($this->token . $this->secret . $params_string);
+
+		$params_string .= '&' . http_build_query($params);
+
+		if (strtolower($method) === 'get') {
+			$request = $request->withMethod('get');
+			$uri = $uri->withQuery($params_string);
+		} else {
+			$request = $request->withMethod($method);
+			$stream->write($params_string);
 		}
 
-		return $result;
-//		if (isset($params['images']))
-//			if (is_array($params['images']))
-//				$params['images'] = json_encode($params['images'], JSON_THROW_ON_ERROR);
-//
-//		$params['app_id'] = $this->app_id;
-//		ksort($params);
-//		array_walk_recursive($params, function (&$val, $key) {
-//			if (is_null($val)) {
-//				$val = '';
-//			}
-//		});
-//		$params_string = http_build_query($params);
-//		$params = array();
-//		$params['app_psw'] = MD5($this->token . $this->secret . $params_string);
-//
-//		$params_string .= '&' . http_build_query($params);
-//		$url = $this->account . "/api/rest/" . $model . ".json";
-//
-//		$c = curl_init();
-//
-//		if ($method === 'post') {
-//			curl_setopt($c, CURLOPT_URL, $url);
-//			curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
-//			curl_setopt($c, CURLOPT_POST, true);
-//			curl_setopt($c, CURLOPT_POSTFIELDS, $params_string);
-//		} else if ($method === 'get') {
-//			curl_setopt($c, CURLOPT_URL, $url . '?' . $params_string);
-//			curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
-//		} else if ($method === 'put') {
-//			curl_setopt($c, CURLOPT_URL, $url);
-//			curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
-//			curl_setopt($c, CURLOPT_CUSTOMREQUEST, 'PUT');
-//			curl_setopt($c, CURLOPT_POSTFIELDS, $params_string);
-//		} else if ($method === 'delete') {
-//			curl_setopt($c, CURLOPT_URL, $url);
-//			curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
-//			curl_setopt($c, CURLOPT_CUSTOMREQUEST, 'DELETE');
-//			curl_setopt($c, CURLOPT_POSTFIELDS, $params_string);
-//		}
-//
-//		$result = curl_exec($c);
-//
-//		$status_code = curl_getinfo($c, CURLINFO_HTTP_CODE);
-//		curl_close($c);
-//
-//		if ($status_code == 200) {
-//			$this->log(LogLevel::INFO, 'Запрос выполнен успешно', ['method' => $method, 'model' => $model, 'params' => $params]);
-//			$result = json_decode($result, true, 2048, JSON_THROW_ON_ERROR);
-//			$app_psw = $result['app_psw'];
-//			unset($result['app_psw']);
-//
-//			if (MD5($this->token . $this->secret . json_encode($result)) == $app_psw) {
-//				$this->log(LogLevel::INFO, 'Токен прошел проверку');
-//				return ($result);
-//			}
-//
-//			$this->log(LogLevel::ERROR, 'Ошибка авторизации', ['method' => $method, 'model' => $model, 'params' => $params]);
-//			return ["status" => "error",
-//				"error_code" => "auth:1",
-//				"error_text" => "Ошибка авторизации"];
-//		}
-//
-//		if ($status_code == 401) {
-//			$this->log(LogLevel::INFO, 'Токен просрочен');
-//			return 401;
-//		}
-//
-//		if ($status_code == 503) {
-//			$this->log(LogLevel::INFO, 'Превышен лимит запросов');
-//			return 503;
-//		}
-//		return ["status" => "error", "error_code" => "http:" . $status_code];
+		$request = $request->withBody($stream);
+		$request = $request->withUri($uri);
+
+		$responce = $this->httpClient->sendRequest($request);
+
+
+		$status_code = $responce->getStatusCode();
+		$responce->getBody()->seek(0);
+		$result = $responce->getBody()->getContents();
+
+
+
+		if ($status_code == 200) {
+			$this->log(LogLevel::INFO, 'Запрос выполнен успешно', ['method' => $method, 'model' => $model, 'params' => $params]);
+			$result = json_decode($result, true, 2048, JSON_THROW_ON_ERROR);
+			$app_psw = $result['app_psw'];
+			unset($result['app_psw']);
+
+			if (MD5($this->token . $this->secret . json_encode($result)) == $app_psw) {
+				$this->log(LogLevel::INFO, 'Токен прошел проверку');
+				return ($result);
+			}
+
+			$this->log(LogLevel::ERROR, 'Ошибка авторизации', ['method' => $method, 'model' => $model, 'params' => $params]);
+			return ["status" => "error",
+				"error_code" => "auth:1",
+				"error_text" => "Ошибка авторизации"];
+		}
+
+		if ($status_code == 401) {
+			$this->log(LogLevel::INFO, 'Токен просрочен');
+			return 401;
+		}
+
+		if ($status_code == 503) {
+			$this->log(LogLevel::INFO, 'Превышен лимит запросов');
+			return 503;
+		}
+		return ["status" => "error", "error_code" => "http:" . $status_code];
 	}
 
 	/**
