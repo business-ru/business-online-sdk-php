@@ -6,7 +6,7 @@ use bru\api\Exception\SimpleFileCacheException;
 use bru\api\Exception\SimpleFileCacheInvalidArgumentException;
 use Psr\SimpleCache\CacheInterface;
 
-class SimpleFileCache implements CacheInterface
+final class SimpleFileCache implements CacheInterface
 {
 
 	/**
@@ -32,6 +32,7 @@ class SimpleFileCache implements CacheInterface
 	 * @param null $default
 	 * @return false|mixed|string
 	 * @throws SimpleFileCacheException
+	 * @throws SimpleFileCacheInvalidArgumentException
 	 */
 	public function get($key, $default = null)
 	{

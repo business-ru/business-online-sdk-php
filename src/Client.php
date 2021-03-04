@@ -2,17 +2,19 @@
 
 namespace bru\api;
 
+use bru\api\Exception\BruApiClientException;
 use bru\api\Exception\SimpleFileCacheException;
 use bru\api\Http\Request;
 use bru\api\Http\Stream;
 use bru\api\Http\Uri;
-use Exception;
 use JsonException;
+use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use Psr\Log\LogLevel;
 use Psr\SimpleCache\CacheInterface;
+use Psr\SimpleCache\InvalidArgumentException;
 
 final class Client implements LoggerAwareInterface
 {
@@ -86,9 +88,9 @@ final class Client implements LoggerAwareInterface
 	 * @param false $sleepy Засыпать при превышении лимита запросов
 	 * @param CacheInterface|null $cache Объект для кэширования
 	 * @param ClientInterface|null $httpClient
+	 * @throws BruApiClientException
 	 * @throws SimpleFileCacheException
-	 * @throws \Psr\SimpleCache\InvalidArgumentException
-	 * @throws Exception
+	 * @throws InvalidArgumentException
 	 */
 	public function __construct(string $account, int $app_id, string $secret,bool $sleepy = false, CacheInterface $cache = null, ClientInterface $httpClient = null)
 	{
@@ -122,7 +124,7 @@ final class Client implements LoggerAwareInterface
 			if (is_array($this->token) && $this->token['status'] === 'error') {
 				$this->log(LogLevel::ERROR, 'Данные для API неверные. Код ошибки: ' . $this->token['error_code'], ['account' => $account,
 					'app_id' => $app_id, 'secret' => $secret]);
-				throw new Exception('Данные для API неверные. Код ошибки: ' . $this->token['error_code']);
+				throw new BruApiClientException('Данные для API неверные. Код ошибки: ' . $this->token['error_code']);
 			}
 
 			if (is_string($this->token) && (strlen($this->token) == 32)) {
@@ -137,9 +139,9 @@ final class Client implements LoggerAwareInterface
 	 * @param string $model
 	 * @param array $params
 	 * @return array|int|mixed|string[]
+	 * @throws InvalidArgumentException
 	 * @throws JsonException
-	 * @throws SimpleFileCacheException
-	 * Получить все записи модели (с условиями в $params)
+	 * @throws SimpleFileCacheException|ClientExceptionInterface Получить все записи модели (с условиями в $params)
 	 */
 	public function requestAll(string $model, array $params = [])
 	{
@@ -163,7 +165,7 @@ final class Client implements LoggerAwareInterface
 
 			for ($i = 0; $i < $pages; $i++) {
 				$params['limit'] = 250;
-				$params['page'] = $i + 1;
+				$params['page'] = ($i + 1);
 				$request = $this->request($method, $model, $params);
 				$result['result'] = array_merge($result['result'], $request['result']);
 				$result['status'] = $request['status'];
@@ -208,8 +210,10 @@ final class Client implements LoggerAwareInterface
 	/**
 	 * @param array $data Параметры уведомления
 	 * @return int|mixed|string[]|void
-	 * @throws JsonException
-	 * Отправляет уведомление пользователям
+	 * @throws InvalidArgumentException
+	 * @throws JsonException * Отправляет уведомление пользователям
+	 * @throws SimpleFileCacheException * Отправляет уведомление пользователям
+	 * @throws ClientExceptionInterface
 	 */
 	public function sendNotification(array $data)
 	{
@@ -251,8 +255,10 @@ final class Client implements LoggerAwareInterface
 	 * @param string $model
 	 * @param array $params
 	 * @return int|mixed|string[]
-	 * @throws JsonException|SimpleFileCacheException
-	 * Запрос к API
+	 * @throws JsonException Запрос к API
+	 * @throws SimpleFileCacheException Запрос к API
+	 * @throws ClientExceptionInterface
+	 * @throws InvalidArgumentException|BruApiClientException
 	 */
 	public function request(string $method, string $model, array $params = [])
 	{
@@ -277,8 +283,7 @@ final class Client implements LoggerAwareInterface
 	 * @param string $method Метод (get, post, put, delete)
 	 * @param array $params Параметры
 	 * @return mixed
-	 * @throws \Psr\Http\Client\ClientExceptionInterface
-	 * @throws JsonException
+	 * @throws JsonException|ClientExceptionInterface
 	 */
 	private function SendRequest(string $method, string $model, array $params = [])
 	{
@@ -323,6 +328,8 @@ final class Client implements LoggerAwareInterface
 			$stream->write($params_string);
 		}
 
+		$stream->seek(0);
+
 		$request = $request->withBody($stream);
 		$request = $request->withUri($uri);
 
@@ -332,8 +339,6 @@ final class Client implements LoggerAwareInterface
 		$status_code = $responce->getStatusCode();
 		$responce->getBody()->seek(0);
 		$result = $responce->getBody()->getContents();
-
-
 
 		if ($status_code == 200) {
 			$this->log(LogLevel::INFO, 'Запрос выполнен успешно', ['method' => $method, 'model' => $model, 'params' => $params]);
@@ -368,19 +373,20 @@ final class Client implements LoggerAwareInterface
 	 * @param $method
 	 * @param $model
 	 * @param $params
-	 * @throws JsonException
-	 * @throws Exception
 	 * Спит пока не проснется
+	 * @throws BruApiClientException
+	 * @throws JsonException
+	 * @throws ClientExceptionInterface
 	 */
 	private function rSleep($method, $model, $params): void
 	{
 		if (($this->currentTime() - $this->startTime) > ((int)ini_get('max_execution_time') < 300) ?  ini_get('max_execution_time') : 300) {
 			$this->log(LogLevel::ERROR, 'Время ожидания сброса лимита запросов превышено');
-			throw new Exception('Время ожидания сброса лимита запросов превышено');
+			throw new BruApiClientException('Время ожидания сброса лимита запросов превышено');
 		}
 		sleep(10);
 		$r = $this->SendRequest('get', $model, ['count_only' => 1]);
-		if ($r == 503) $this->rSleep($method, $model, $params);
+		if ($r === 503) $this->rSleep($method, $model, $params);
 	}
 
 

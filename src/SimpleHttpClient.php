@@ -2,20 +2,20 @@
 
 namespace bru\api;
 
-
+use bru\api\Exception\HttpClientException;
 use bru\api\Http\Responce;
 use bru\api\Http\Stream;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
-use RuntimeException;
 
-class SimpleHttpClient implements ClientInterface
+final class SimpleHttpClient implements ClientInterface
 {
 
 	/**
 	 * @param RequestInterface $request
 	 * @return ResponseInterface
+	 * @throws HttpClientException
 	 */
 	public function sendRequest(RequestInterface $request): ResponseInterface
 	{
@@ -28,7 +28,6 @@ class SimpleHttpClient implements ClientInterface
 
 		if ($method !== 'GET')
 		{
-			$request->getBody()->seek(0);
 			$params_string = $request->getBody()->getContents();
 		}
 		if ($method === 'POST') {
@@ -49,12 +48,14 @@ class SimpleHttpClient implements ClientInterface
 			curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
 			curl_setopt($c, CURLOPT_CUSTOMREQUEST, 'DELETE');
 			curl_setopt($c, CURLOPT_POSTFIELDS, $params_string);
-		} else throw new RuntimeException('Метод ' . $method . ' не поддерживается.');
+		} else {
+			throw new HttpClientException('Метод ' . $method . ' не поддерживается.');
+		}
 
 
 		$result = curl_exec($c);
 
-		$stream = new Stream('php://temp/bruapi/responce', 'w+');
+		$stream = new Stream('php://temp/bruapi/response', 'w+');
 		$stream->write($result);
 
 		$status_code = curl_getinfo($c, CURLINFO_RESPONSE_CODE);
