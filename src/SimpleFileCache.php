@@ -2,8 +2,8 @@
 
 namespace bru\api;
 
-use bru\api\Exception\SimpleFileCacheException;
-use bru\api\Exception\SimpleFileCacheInvalidArgumentException;
+use bru\api\Exceptions\SimpleFileCacheException;
+use bru\api\Exceptions\SimpleFileCacheInvalidArgumentException;
 use Psr\SimpleCache\CacheInterface;
 
 final class SimpleFileCache implements CacheInterface

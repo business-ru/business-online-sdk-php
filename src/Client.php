@@ -2,8 +2,8 @@
 
 namespace bru\api;
 
-use bru\api\Exception\BruApiClientException;
-use bru\api\Exception\SimpleFileCacheException;
+use bru\api\Exceptions\BruApiClientException;
+use bru\api\Exceptions\SimpleFileCacheException;
 use bru\api\Http\Request;
 use bru\api\Http\Stream;
 use bru\api\Http\Uri;
