@@ -99,7 +99,7 @@ final class Client implements LoggerAwareInterface
 			$this->account = trim($account, '/');
 			preg_match('~\d{3}\.\d{3}\.\d{3}\.\d{3}~', $account, $host);
 			preg_match('~:\d.*~', $account, $port);
-			$this->port = ltrim($port[0], ':') ?? 0;
+			$this->port = trim($port[0], ':') ?? 0;
 			$this->host = $host[0];
 		} else {
 			$this->account = 'https://' . $account . '.business.ru';
@@ -335,7 +335,6 @@ final class Client implements LoggerAwareInterface
 
 		$responce = $this->httpClient->sendRequest($request);
 
-
 		$status_code = $responce->getStatusCode();
 		$responce->getBody()->seek(0);
 		$result = $responce->getBody()->getContents();
@@ -347,7 +346,6 @@ final class Client implements LoggerAwareInterface
 			unset($result['app_psw']);
 
 			if (MD5($this->token . $this->secret . json_encode($result)) == $app_psw) {
-				$this->log(LogLevel::INFO, 'Токен прошел проверку');
 				return ($result);
 			}
 
@@ -395,6 +393,7 @@ final class Client implements LoggerAwareInterface
 	 */
 	private function getNewToken()
 	{
+		$this->token = '';
 		$result = $this->SendRequest('get', 'repair');
 
 		if ($result['token'] && strlen($result['token']) === 32)
