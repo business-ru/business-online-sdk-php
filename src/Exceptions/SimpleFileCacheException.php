@@ -1,6 +1,6 @@
 <?php
 
-namespace bru\api\Exception;
+namespace bru\api\Exceptions;
 
 use Exception;
 use Psr\SimpleCache\CacheException;

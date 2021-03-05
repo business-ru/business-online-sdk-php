@@ -2,7 +2,7 @@
 
 namespace bru\api;
 
-use bru\api\Exception\HttpClientException;
+use bru\api\Exceptions\HttpClientException;
 use bru\api\Http\Responce;
 use bru\api\Http\Stream;
 use Psr\Http\Client\ClientInterface;
