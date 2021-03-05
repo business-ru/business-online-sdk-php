@@ -15,7 +15,6 @@
       "email": "email@example.com"
     }
   ],
-  "minimum-stability": "dev",
   "require": {
     "php": ">=7.3",
     "ext-curl": "*",
