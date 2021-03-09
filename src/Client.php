@@ -81,7 +81,24 @@ final class Client implements LoggerAwareInterface
 
 
 	/**
-	 * Client constructor.
+	 * Создание клиента API Бизнес.ру
+	 * В конструктор в качестве параметров нужно обязательно передать
+	 *  - имя аккаунта (например для https://a12233.business.ru/ имя аккаунта - a12233)
+	 *  - ID интеграции это идентификатор, выдаваемый при подключении интеграции в CRM
+	 *  - Секретный ключ это строка, состоящая из 32 символов, выдается так же при подключении интеграции в CRM
+	 * Необязательные параметры:
+	 *  - $sleepy - При превышении количества запросов включение данной функции даст возможность
+	 * 				ожидать сброса лимита и продолжить выполнение запросов к API.
+	 *				true - Включить функцию
+	 * 				false - Отключить функцию (По умолчанию)
+	 * - CacheInterface - Библиотека использует кеширование для хранения токенов. Если вы хотите
+	 * 				чтобы использовался ваш кэш, в качестве параметра нужно передать объект,
+	 *				реализующий интерфейс CacheInterface (PSR-16). По умолчанию библиотека использует
+	 * 				встроенный кэш.
+	 *  - ClientInterface - Если вы хотите использовать свой HTTP - клиент для запросов к API, в качестве
+	 * 				параметра нужно передать объект, реализующий интерфейс ClientInterface (PSR-18).
+	 * 				По умолчанию библиотека использует встроенный HTTP - клиент.
+	 *
 	 * @param string $account Имя аккаунта
 	 * @param int $app_id ID интеграции
 	 * @param string $secret Секретный ключ
@@ -136,13 +153,26 @@ final class Client implements LoggerAwareInterface
 	}
 
 	/**
+	 * Запрос всех записей модели.
+	 * Аналогично методу request, за исключением того, что данный метод
+	 * выполняет get - запрос к переданной модели и возвращает все записи,
+	 * даже если они превышают лимит (250 записей). Время выполнения данного
+	 * метода может занимать длительное время. Если при создании данного объекта
+	 * был передан параметр $sleepy равный true, то даже при превышении лимита
+	 * запросов метод будет продолжать работу до тех пор, пока не получит все записи.
+	 * В качестве параметров обязательно нужно передать:
+	 *  - Модель (Список всех моделей можно узнать на https://developers.business.ru/)
+	 *  - Параметры (Список всех параметров можно узнать на https://developers.business.ru/)
+	 * Если во время выполнения выдается ошибка Maximum execution time of 30 seconds exceeded
+	 * в конфигурации php.ini нужно увеличить допустимое время работы скрипта max_execution_time
+	 * Например max_execution_time = 900
+	 *
 	 * @param string $model Модель
 	 * @param array $params Параметры
 	 * @return array|int|mixed|string[]
 	 * @throws InvalidArgumentException
 	 * @throws JsonException
 	 * @throws SimpleFileCacheException|ClientExceptionInterface Получить все записи модели (с условиями в $params)
-	 * Запрос всех записей модели
 	 */
 	public function requestAll(string $model, array $params = [])
 	{
@@ -188,8 +218,11 @@ final class Client implements LoggerAwareInterface
 	}
 
 	/**
+	 * Метод проверяет уведомление при работе с веб - хуками.
+	 * Аналогично методу check, но качестве данных использует данные переданные
+	 * при создании данного объекта (ID интеграции и секретный ключ).
+	 *
 	 * @return bool
-	 * Проверка уведомления с экземпляром класса
 	 */
 	public function checkNotification(): bool
 	{
@@ -197,10 +230,15 @@ final class Client implements LoggerAwareInterface
 	}
 
 	/**
+	 * Метод проверяет уведомление при работе с веб - хуками.
+	 * В качестве параметра нужно передать:
+	 *  - ID интеграции это идентификатор, выдаваемый при подключении интеграции в CRM
+	 *  - Секретный ключ это строка, состоящая из 32 символов, выдается так же при подключении интеграции в CRM
+	 * Метод аналогичен checkNotification, но для работы не нужно создавать объект.
+	 *
 	 * @param int $app_id
 	 * @param string $secret
 	 * @return bool
-	 * Проверка уведомления без экземпляра класса
 	 */
 	public static function check(int $app_id, string $secret): bool
 	{
@@ -209,13 +247,18 @@ final class Client implements LoggerAwareInterface
 
 
 	/**
+	 *
+	 * Метод позволяет отправлять уведомления
+	 * Требуемый параметр
+	 *  - Массив параметров уведомления.
+	 * Подробнее об уведомлениях и параметрах можно узнать на https://developers.business.ru/
+	 *
 	 * @param array $data Параметры уведомления
 	 * @return int|mixed|string[]|void
 	 * @throws InvalidArgumentException
 	 * @throws JsonException * Отправляет уведомление пользователям
 	 * @throws SimpleFileCacheException * Отправляет уведомление пользователям
 	 * @throws ClientExceptionInterface
-	 * Отправить уведомление
 	 */
 	public function sendNotification(array $data)
 	{
@@ -253,6 +296,12 @@ final class Client implements LoggerAwareInterface
 	}
 
 	/**
+	 * Метод позволяет выполнить запрос к API
+	 * В качестве параметров нужно передать:
+	 *  - Метод. Поддерживаются 4 метода (не для всех моделей) get - чтение, post - создание, put - изменение, delete - удаление
+	 *  - Модель. Список всех моделей и их описание можно узнать на https://developers.business.ru/
+	 *  - Параметры. Список всех возможных параметров можно узнать на https://developers.business.ru/
+	 *
 	 * @param string $method Метод
 	 * @param string $model Модель
 	 * @param array $params Параметры
@@ -261,7 +310,6 @@ final class Client implements LoggerAwareInterface
 	 * @throws SimpleFileCacheException
 	 * @throws ClientExceptionInterface
 	 * @throws InvalidArgumentException|BruApiClientException
-	 * Запрос к API
 	 */
 	public function request(string $method, string $model, array $params = [])
 	{
