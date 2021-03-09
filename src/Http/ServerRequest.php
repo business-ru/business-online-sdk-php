@@ -356,7 +356,7 @@ final class ServerRequest implements ServerRequestInterface
 			$host .= ':' . $port;
 		}
 
-		$this->headerNames['host'] ?: 'Host';
+		$this->headerNames['host'] = 'Host';
 		$this->headers = [$this->headerNames['host'] => [$host]] + $this->headers;
 	}
 

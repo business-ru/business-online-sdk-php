@@ -176,7 +176,7 @@ final class Client implements LoggerAwareInterface
 	 */
 	public function requestAll(string $model, array $params = [])
 	{
-		$method = 'get';
+		$method = 'GET';
 
 		$temp = $params;
 		$temp['count_only'] = 1;
@@ -313,7 +313,7 @@ final class Client implements LoggerAwareInterface
 	 */
 	public function request(string $method, string $model, array $params = [])
 	{
-		$result = $this->sendRequest($method, $model, $params);
+		$result = $this->sendRequest(strtoupper($method), $model, $params);
 		//Токен не прошел
 		if ($result == 401) {
 			$this->token = $this->getNewToken();
@@ -371,11 +371,11 @@ final class Client implements LoggerAwareInterface
 
 		$params_string .= '&' . http_build_query($params);
 
-		if (strtolower($method) === 'get') {
-			$request = $request->withMethod('get');
+		if (strtoupper($method) === 'GET') {
+			$request = $request->withMethod('GET');
 			$uri = $uri->withQuery($params_string);
 		} else {
-			$request = $request->withMethod($method);
+			$request = $request->withMethod(strtoupper($method));
 			$stream->write($params_string);
 		}
 
@@ -434,7 +434,7 @@ final class Client implements LoggerAwareInterface
 			throw new BruApiClientException('Время ожидания сброса лимита запросов превышено');
 		}
 		sleep(10);
-		$r = $this->sendRequest('get', $model, ['count_only' => 1]);
+		$r = $this->sendRequest('GET', $model, ['count_only' => 1]);
 		if ($r === 503) $this->rSleep($method, $model, $params);
 	}
 
@@ -445,7 +445,7 @@ final class Client implements LoggerAwareInterface
 	private function getNewToken()
 	{
 		$this->token = '';
-		$result = $this->sendRequest('get', 'repair');
+		$result = $this->sendRequest('GET', 'repair');
 
 		if ($result['token'] && strlen($result['token']) === 32)
 		{
