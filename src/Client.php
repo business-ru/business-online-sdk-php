@@ -87,7 +87,7 @@ final class Client implements LoggerAwareInterface
 	 * @param string $secret Секретный ключ
 	 * @param false $sleepy Засыпать при превышении лимита запросов
 	 * @param CacheInterface|null $cache Объект для кэширования
-	 * @param ClientInterface|null $httpClient
+	 * @param ClientInterface|null $httpClient HTTP - клиент
 	 * @throws BruApiClientException
 	 * @throws SimpleFileCacheException
 	 * @throws InvalidArgumentException
@@ -136,12 +136,13 @@ final class Client implements LoggerAwareInterface
 	}
 
 	/**
-	 * @param string $model
-	 * @param array $params
+	 * @param string $model Модель
+	 * @param array $params Параметры
 	 * @return array|int|mixed|string[]
 	 * @throws InvalidArgumentException
 	 * @throws JsonException
 	 * @throws SimpleFileCacheException|ClientExceptionInterface Получить все записи модели (с условиями в $params)
+	 * Запрос всех записей модели
 	 */
 	public function requestAll(string $model, array $params = [])
 	{
@@ -214,6 +215,7 @@ final class Client implements LoggerAwareInterface
 	 * @throws JsonException * Отправляет уведомление пользователям
 	 * @throws SimpleFileCacheException * Отправляет уведомление пользователям
 	 * @throws ClientExceptionInterface
+	 * Отправить уведомление
 	 */
 	public function sendNotification(array $data)
 	{
@@ -251,23 +253,24 @@ final class Client implements LoggerAwareInterface
 	}
 
 	/**
-	 * @param string $method
-	 * @param string $model
-	 * @param array $params
+	 * @param string $method Метод
+	 * @param string $model Модель
+	 * @param array $params Параметры
 	 * @return int|mixed|string[]
-	 * @throws JsonException Запрос к API
-	 * @throws SimpleFileCacheException Запрос к API
+	 * @throws JsonException
+	 * @throws SimpleFileCacheException
 	 * @throws ClientExceptionInterface
 	 * @throws InvalidArgumentException|BruApiClientException
+	 * Запрос к API
 	 */
 	public function request(string $method, string $model, array $params = [])
 	{
-		$result = $this->SendRequest($method, $model, $params);
+		$result = $this->sendRequest($method, $model, $params);
 		//Токен не прошел
 		if ($result == 401) {
 			$this->token = $this->getNewToken();
 			$this->cache->set($this->getCacheKey(), $this->token);
-			$result = $this->SendRequest($method, $model, $params);
+			$result = $this->sendRequest($method, $model, $params);
 		}
 		if ($result == 503 && $this->sleepy)
 		{
@@ -285,7 +288,7 @@ final class Client implements LoggerAwareInterface
 	 * @return mixed
 	 * @throws JsonException|ClientExceptionInterface
 	 */
-	private function SendRequest(string $method, string $model, array $params = [])
+	private function sendRequest(string $method, string $model, array $params = [])
 	{
 
 		$request = new Request();
@@ -383,7 +386,7 @@ final class Client implements LoggerAwareInterface
 			throw new BruApiClientException('Время ожидания сброса лимита запросов превышено');
 		}
 		sleep(10);
-		$r = $this->SendRequest('get', $model, ['count_only' => 1]);
+		$r = $this->sendRequest('get', $model, ['count_only' => 1]);
 		if ($r === 503) $this->rSleep($method, $model, $params);
 	}
 
@@ -394,7 +397,7 @@ final class Client implements LoggerAwareInterface
 	private function getNewToken()
 	{
 		$this->token = '';
-		$result = $this->SendRequest('get', 'repair');
+		$result = $this->sendRequest('get', 'repair');
 
 		if ($result['token'] && strlen($result['token']) === 32)
 		{
