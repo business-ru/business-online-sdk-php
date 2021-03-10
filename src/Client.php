@@ -71,11 +71,13 @@ final class Client implements LoggerAwareInterface
 
 	/**
 	 * @var string
+	 * Хост (Для IP)
 	 */
 	private $host;
 
 	/**
 	 * @var int
+	 * Порт (Для IP)
 	 */
 	private $port = 0;
 
@@ -113,9 +115,10 @@ final class Client implements LoggerAwareInterface
 	{
 		if (preg_match('~\d{3}\.\d{3}\.\d{3}\.\d{3}~', $account))
 		{
-			$this->account = trim($account, '/');
+			$this->account = trim($account, '');
+			$this->account = trim($this->account, '/');
 			preg_match('~\d{3}\.\d{3}\.\d{3}\.\d{3}~', $account, $host);
-			preg_match('~:\d.*~', $account, $port);
+			preg_match('~:\d*~', $account, $port);
 			$this->port = trim($port[0], ':') ?? 0;
 			$this->host = $host[0];
 		} else {
@@ -221,6 +224,7 @@ final class Client implements LoggerAwareInterface
 	 * Метод проверяет уведомление при работе с веб - хуками.
 	 * Аналогично методу check, но качестве данных использует данные переданные
 	 * при создании данного объекта (ID интеграции и секретный ключ).
+	 * В случае успешной проверки возвращает true, в остальных - false
 	 *
 	 * @return bool
 	 */
@@ -247,33 +251,68 @@ final class Client implements LoggerAwareInterface
 
 
 	/**
+	 * Отправить уведомление пользователям.
+	 * Требуемые параметры:
+	 *  - $employees - ID пользователя либо массив с ID пользователей адресатов уведомления
+	 *  - $header - Заголовок уведомления
+	 *  - $message - Сообщение
+	 * Необязательные параметры:
+	 *  - $document_id - ID прикрепляемого документа
+	 *  - $model_name - Модель прикрепляемого документа
+	 *  - $action - Текст ссылки на документ в уведомлении
+	 *  - $seconds - Задержка в секундах, перед тем как пользователи получат уведомление
 	 *
-	 * Метод позволяет отправлять уведомления
-	 * Требуемый параметр
-	 *  - Массив параметров уведомления.
-	 * Подробнее об уведомлениях и параметрах можно узнать на https://developers.business.ru/
+	 * Подробнее можно узнать на https://developers.business.ru/
 	 *
-	 * @param array $data Параметры уведомления
-	 * @return int|mixed|string[]|void
-	 * @throws InvalidArgumentException
-	 * @throws JsonException * Отправляет уведомление пользователям
-	 * @throws SimpleFileCacheException * Отправляет уведомление пользователям
+	 * @param $employees string|array ID пользователя или пользователей
+	 * @param string $header Заголовок
+	 * @param string $message Сообщение
+	 * @param null $document_id ID документа
+	 * @param null $model_name Название модели документа
+	 * @param null $action Текст ссылки на документ
+	 * @param int $seconds Задержка в секундах
+	 * @return int|mixed|string[]
+	 * @throws BruApiClientException
 	 * @throws ClientExceptionInterface
+	 * @throws InvalidArgumentException
+	 * @throws JsonException
+	 * @throws SimpleFileCacheException
 	 */
-	public function sendNotification(array $data)
+	public function sendNotificationSystem($employees, string $header, string $message, $document_id = null, $model_name = null, $action = null, $seconds = 0)
 	{
-		if (!isset($data['employee_ids']) || !isset($data['header']) || !isset($data['message'])) {
-			$this->log(LogLevel::ERROR, 'Недостаточно параметров для отправки уведомления', $data);
-			return;
+		$data = [];
+
+		if (is_array($employees))
+		{
+			foreach ($employees as $employee)
+			{
+				$data['employee_ids'][] = $employee;
+			}
+		} else {
+			$data['employee_ids'][] = (int)$employees;
 		}
+
+		$data['header'] = $header;
+		$data['message'] = $message;
+		if ($document_id) $data['document_id'] = $document_id;
+		if ($model_name) $data['model_name'] = $model_name;
+		if ($action) $data['action'] = $action;
+		if ($seconds) $data['seconds'] = $seconds;
+
+
 		$this->log(LogLevel::INFO, 'Уведомление успешно отправлено на обработку');
 		return $this->request('post', 'notifications', $data);
 	}
 
 
 	/**
+	 *
+	 * Проверяет подлинность уведомления полученного из веб-хука
+	 * Вернет true в результате успешной проверки и false в результате провала
+	 *
+	 * @param int $app_id ID интеграции
+	 * @param string $secret Секретный ключ
 	 * @return bool
-	 * Проверяет подлинность уведомления
 	 */
 	private static function checkN(int $app_id, string $secret): bool
 	{
@@ -301,6 +340,8 @@ final class Client implements LoggerAwareInterface
 	 *  - Метод. Поддерживаются 4 метода (не для всех моделей) get - чтение, post - создание, put - изменение, delete - удаление
 	 *  - Модель. Список всех моделей и их описание можно узнать на https://developers.business.ru/
 	 *  - Параметры. Список всех возможных параметров можно узнать на https://developers.business.ru/
+	 *
+	 * В результате успешной работы вернет массив со статусом и результатом выполнения запроса
 	 *
 	 * @param string $method Метод
 	 * @param string $model Модель
@@ -330,6 +371,8 @@ final class Client implements LoggerAwareInterface
 	}
 
 	/**
+	 * Отправить запрос к HTTP - клиенту
+	 *
 	 * @param string $model Модель
 	 * @param string $method Метод (get, post, put, delete)
 	 * @param array $params Параметры
@@ -419,10 +462,14 @@ final class Client implements LoggerAwareInterface
 	}
 
 	/**
+	 *
+	 * Если указан параметр $sleep = true в конструкторе
+	 * метод будет вызывать sleep() каждый раз, когда
+	 * будет превышен лимит запросов к API
+	 *
 	 * @param $method
 	 * @param $model
 	 * @param $params
-	 * Спит пока не проснется
 	 * @throws BruApiClientException
 	 * @throws JsonException
 	 * @throws ClientExceptionInterface
@@ -441,6 +488,11 @@ final class Client implements LoggerAwareInterface
 
 	/**
 	 * Восстановить токен
+	 * Отправит запрос к API на восстановление токена
+	 * в случае успеха вернет строку с токеном
+	 * @return string|array Токен
+	 * @throws ClientExceptionInterface
+	 * @throws JsonException
 	 */
 	private function getNewToken()
 	{
@@ -461,8 +513,9 @@ final class Client implements LoggerAwareInterface
 	}
 
 	/**
-	 * @return string
 	 * Возвращает текущую метку времени
+	 *
+	 * @return string Метка времени
 	 */
 	private function currentTime(): string
 	{
@@ -470,10 +523,11 @@ final class Client implements LoggerAwareInterface
 	}
 
 	/**
-	 * @param string $level
-	 * @param string $message
-	 * @param array $context
-	 * Форматирует сообщение для логирования
+	 * Форматирует сообщение для логирования и записывает в лог,
+	 * если был установлен логгер через метод setLogger()
+	 * @param string $level Уровень важности
+	 * @param string $message Сообщение
+	 * @param array $context Контекст ошибки
 	 */
 	private function log(string $level, string $message, array $context = []): void
 	{
