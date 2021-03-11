@@ -8,6 +8,7 @@ use bru\api\Http\Request;
 use bru\api\Http\Stream;
 use bru\api\Http\Uri;
 use JsonException;
+use JsonSerializable;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Log\LoggerAwareInterface;
@@ -118,7 +119,7 @@ final class Client implements LoggerAwareInterface
 			$this->account = trim($account, '');
 			$this->account = trim($this->account, '/');
 			preg_match('~\d{3}\.\d{3}\.\d{3}\.\d{3}~', $account, $host);
-			preg_match('~:\d*~', $account, $port);
+			preg_match('~:\d+~', $account, $port);
 			$this->port = trim($port[0], ':') ?? 0;
 			$this->host = $host[0];
 		} else {
@@ -367,6 +368,46 @@ final class Client implements LoggerAwareInterface
 			$result = $this->request($method, $model, $params);
 		}
 		if (is_array($result['result'])) $this->log(LogLevel::INFO, 'Количество записей в ответе: ' . count($result['result']));
+		return $result;
+	}
+
+	public function graphql($data = null)
+	{
+		$uri = new Uri();
+		preg_match('~^\w*~', $this->account, $scheme);
+		$uri = $uri->withScheme($scheme[0]);
+		$uri = $uri->withHost($this->host);
+		if (!$this->port) {
+			if ($scheme === 'http') $uri = $uri->withPort(80);
+			if ($scheme === 'https') $uri = $uri->withPort(443);
+		} else {
+			$uri = $uri->withPort($this->port);
+		}
+
+		$uri = $uri->withPath('api/rest/graphql.json');
+
+		$stream = new Stream();
+		if ($data) $stream->write(json_encode($data));
+		$stream->seek(0);
+
+		$request = new Request();
+		$request = $request->withMethod('POST');
+		$request = $request->withBody($stream);
+		$request = $request->withProtocolVersion('1.1');
+		$request = $request->withRequestTarget('api/rest/graphql.json');
+
+		$app_psw = md5($this->token . $this->secret . $this->token);
+		$uri = $uri->withQuery('app_id=' . $this->app_id . '&app_psw=' . $app_psw);
+
+		$request = $request->withUri($uri);
+
+		$responce = $this->httpClient->sendRequest($request);
+
+		var_dump($responce->getStatusCode());
+
+		$responce->getBody()->seek(0);
+		$result = $responce->getBody()->getContents();
+
 		return $result;
 	}
 
