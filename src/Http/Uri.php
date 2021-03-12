@@ -5,6 +5,22 @@ namespace bru\api\Http;
 use InvalidArgumentException;
 use Psr\Http\Message\UriInterface;
 
+use function parse_url;
+use function is_string;
+use function ltrim;
+use function preg_replace;
+use function sprintf;
+use function is_object;
+use function get_class;
+use function gettype;
+use function rawurlencode;
+use function preg_replace_callback;
+use function is_numeric;
+use function is_float;
+use function strtolower;
+use function implode;
+use function in_array;
+
 final class Uri implements UriInterface
 {
 	/*

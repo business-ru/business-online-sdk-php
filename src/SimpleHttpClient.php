@@ -9,6 +9,14 @@ use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 
+use function curl_init;
+use function strtoupper;
+use function curl_setopt;
+use function curl_exec;
+use function curl_getinfo;
+use function curl_close;
+
+
 final class SimpleHttpClient implements ClientInterface
 {
 

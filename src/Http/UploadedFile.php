@@ -7,6 +7,23 @@ use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UploadedFileInterface;
 use RuntimeException;
 
+use function array_key_exists;
+use function sprintf;
+use function implode;
+use function array_keys;
+use function is_string;
+use function is_resource;
+use function is_object;
+use function gettype;
+use function get_class;
+use function is_dir;
+use function is_writable;
+use function strpos;
+use function rename;
+use function fopen;
+use function fclose;
+use function fwrite;
+
 final class UploadedFile implements UploadedFileInterface
 {
 	private const ERRORS = [

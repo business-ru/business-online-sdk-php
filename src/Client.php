@@ -16,6 +16,27 @@ use Psr\Log\LogLevel;
 use Psr\SimpleCache\CacheInterface;
 use Psr\SimpleCache\InvalidArgumentException;
 
+use function preg_match;
+use function trim;
+use function is_array;
+use function is_string;
+use function strlen;
+use function array_merge;
+use function md5;
+use function http_build_query;
+use function strtoupper;
+use function count;
+use function json_encode;
+use function json_decode;
+use function ksort;
+use function array_walk_recursive;
+use function is_null;
+use function ini_get;
+use function sleep;
+use function date;
+use function call_user_func;
+
+
 final class Client implements LoggerAwareInterface
 {
 

@@ -6,6 +6,17 @@ use bru\api\Exceptions\SimpleFileCacheException;
 use bru\api\Exceptions\SimpleFileCacheInvalidArgumentException;
 use Psr\SimpleCache\CacheInterface;
 
+use function is_dir;
+use function mkdir;
+use function is_string;
+use function is_readable;
+use function file_exists;
+use function file_get_contents;
+use function is_writable;
+use function file_put_contents;
+use function unlink;
+
+
 final class SimpleFileCache implements CacheInterface
 {
 
