@@ -31,6 +31,11 @@ trait MessageTrait
 	private $stream;
 
 	/**
+	 * @var string
+	 */
+	private $protocol;
+
+	/**
 	 * @return string
 	 */
 	public function getProtocolVersion(): string

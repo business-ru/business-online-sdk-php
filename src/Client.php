@@ -423,7 +423,7 @@ final class Client implements LoggerAwareInterface
 		$result = json_decode($result, true);
 		if ($responce->getStatusCode() == 200)
 		{
-			return $result['data'];
+			return $result;
 		} elseif ($responce->getStatusCode() == 401)
 		{
 			$this->token = $this->getNewToken();
