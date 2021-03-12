@@ -371,7 +371,7 @@ final class Client implements LoggerAwareInterface
 		return $result;
 	}
 
-	public function graphql($data = null)
+	public function graphql($data)
 	{
 		$uri = new Uri();
 		preg_match('~^\w*~', $this->account, $scheme);
@@ -386,14 +386,17 @@ final class Client implements LoggerAwareInterface
 
 		$uri = $uri->withPath('api/rest/graphql.json');
 
+
 		$stream = new Stream();
-		if ($data) $stream->write(json_encode($data));
+		$stream->write(json_encode(['query' => $data]));
 		$stream->seek(0);
 
 		$request = new Request();
 		$request = $request->withMethod('POST');
 		$request = $request->withBody($stream);
 		$request = $request->withProtocolVersion('1.1');
+		$request = $request->withHeader('Content-Type', 'application/json');
+		$request = $request->withHeader('Accept-Encoding', 'gzip');
 		$request = $request->withRequestTarget('api/rest/graphql.json');
 
 		$app_psw = md5(((string)$this->app_id) . $this->secret . $this->token);
@@ -408,8 +411,11 @@ final class Client implements LoggerAwareInterface
 		$responce->getBody()->seek(0);
 		$result = $responce->getBody()->getContents();
 
+		$result = json_decode($result, true);
+
 		return $result;
 	}
+
 
 	/**
 	 * Отправить запрос к HTTP - клиенту
