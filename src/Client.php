@@ -8,7 +8,6 @@ use bru\api\Http\Request;
 use bru\api\Http\Stream;
 use bru\api\Http\Uri;
 use JsonException;
-use JsonSerializable;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Log\LoggerAwareInterface;
@@ -91,16 +90,16 @@ final class Client implements LoggerAwareInterface
 	 *  - Секретный ключ это строка, состоящая из 32 символов, выдается так же при подключении интеграции в CRM
 	 * Необязательные параметры:
 	 *  - $sleepy - При превышении количества запросов включение данной функции даст возможность
-	 * 				ожидать сброса лимита и продолжить выполнение запросов к API.
-	 *				true - Включить функцию
-	 * 				false - Отключить функцию (По умолчанию)
+	 *                ожидать сброса лимита и продолжить выполнение запросов к API.
+	 *                true - Включить функцию
+	 *                false - Отключить функцию (По умолчанию)
 	 * - CacheInterface - Библиотека использует кеширование для хранения токенов. Если вы хотите
-	 * 				чтобы использовался ваш кэш, в качестве параметра нужно передать объект,
-	 *				реализующий интерфейс CacheInterface (PSR-16). По умолчанию библиотека использует
-	 * 				встроенный кэш.
+	 *                чтобы использовался ваш кэш, в качестве параметра нужно передать объект,
+	 *                реализующий интерфейс CacheInterface (PSR-16). По умолчанию библиотека использует
+	 *                встроенный кэш.
 	 *  - ClientInterface - Если вы хотите использовать свой HTTP - клиент для запросов к API, в качестве
-	 * 				параметра нужно передать объект, реализующий интерфейс ClientInterface (PSR-18).
-	 * 				По умолчанию библиотека использует встроенный HTTP - клиент.
+	 *                параметра нужно передать объект, реализующий интерфейс ClientInterface (PSR-18).
+	 *                По умолчанию библиотека использует встроенный HTTP - клиент.
 	 *
 	 * @param string $account Имя аккаунта
 	 * @param int $app_id ID интеграции
@@ -109,8 +108,11 @@ final class Client implements LoggerAwareInterface
 	 * @param CacheInterface|null $cache Объект для кэширования
 	 * @param ClientInterface|null $httpClient HTTP - клиент
 	 * @throws BruApiClientException
-	 * @throws SimpleFileCacheException
+	 * @throws ClientExceptionInterface
+	 * @throws Exceptions\SimpleFileCacheInvalidArgumentException
 	 * @throws InvalidArgumentException
+	 * @throws JsonException
+	 * @throws SimpleFileCacheException
 	 */
 	public function __construct(string $account, int $app_id, string $secret,bool $sleepy = false, CacheInterface $cache = null, ClientInterface $httpClient = null)
 	{
@@ -177,6 +179,7 @@ final class Client implements LoggerAwareInterface
 	 * @throws InvalidArgumentException
 	 * @throws JsonException
 	 * @throws SimpleFileCacheException|ClientExceptionInterface Получить все записи модели (с условиями в $params)
+	 * @throws BruApiClientException
 	 */
 	public function requestAll(string $model, array $params = [])
 	{
@@ -313,7 +316,7 @@ final class Client implements LoggerAwareInterface
 	 *
 	 * @param int $app_id ID интеграции
 	 * @param string $secret Секретный ключ
-	 * @return bool
+	 * @return bool Результат
 	 */
 	private static function checkN(int $app_id, string $secret): bool
 	{
@@ -332,7 +335,9 @@ final class Client implements LoggerAwareInterface
 		if (isset($_REQUEST['data'])) $params['data'] = $_REQUEST['data'];
 
 		if (md5($secret . http_build_query($params)) !== $_REQUEST['app_psw']) return false;
-		else return true;
+		else {
+			return true;
+		}
 	}
 
 	/**
@@ -367,7 +372,9 @@ final class Client implements LoggerAwareInterface
 			$this->rSleep($method, $model, $params);
 			$result = $this->request($method, $model, $params);
 		}
-		if (is_array($result['result'])) $this->log(LogLevel::INFO, 'Количество записей в ответе: ' . count($result['result']));
+		if (is_array($result['result'])) {
+			$this->log(LogLevel::INFO, 'Количество записей в ответе: ' . count($result['result']));
+		}
 		return $result;
 	}
 
@@ -376,7 +383,7 @@ final class Client implements LoggerAwareInterface
 	 * $data - Строка в формате GraphQL
 	 *
 	 * @param $data string Строка в формате GraphQL
-	 * @return array|string|null
+	 * @return mixed
 	 * @throws BruApiClientException
 	 * @throws ClientExceptionInterface
 	 * @throws Exceptions\HttpClientException
@@ -470,7 +477,7 @@ final class Client implements LoggerAwareInterface
 
 		$params['app_id'] = $this->app_id;
 		ksort($params);
-		array_walk_recursive($params, function (&$val) {
+		array_walk_recursive($params, static function (&$val) {
 			if (is_null($val)) {
 				$val = '';
 			}});
