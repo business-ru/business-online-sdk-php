@@ -371,7 +371,21 @@ final class Client implements LoggerAwareInterface
 		return $result;
 	}
 
-	public function graphql($data)
+	/**
+	 * Запрос к API в формате GraphQL.
+	 * $data - Строка в формате GraphQL
+	 *
+	 * @param $data string Строка в формате GraphQL
+	 * @return array|string|null
+	 * @throws BruApiClientException
+	 * @throws ClientExceptionInterface
+	 * @throws Exceptions\HttpClientException
+	 * @throws Exceptions\SimpleFileCacheInvalidArgumentException
+	 * @throws InvalidArgumentException
+	 * @throws JsonException
+	 * @throws SimpleFileCacheException
+	 */
+	public function graphQL(string $data)
 	{
 		$uri = new Uri();
 		preg_match('~^\w*~', $this->account, $scheme);
@@ -386,7 +400,6 @@ final class Client implements LoggerAwareInterface
 
 		$uri = $uri->withPath('api/rest/graphql.json');
 
-
 		$stream = new Stream();
 		$stream->write(json_encode(['query' => $data]));
 		$stream->seek(0);
@@ -396,6 +409,7 @@ final class Client implements LoggerAwareInterface
 		$request = $request->withBody($stream);
 		$request = $request->withProtocolVersion('1.1');
 		$request = $request->withHeader('Content-Type', 'application/json');
+		$request = $request->withHeader('Authorization', $this->token);
 		$request = $request->withHeader('Accept-Encoding', 'gzip');
 		$request = $request->withRequestTarget('api/rest/graphql.json');
 
@@ -403,17 +417,23 @@ final class Client implements LoggerAwareInterface
 		$uri = $uri->withQuery('app_id=' . $this->app_id . '&app_psw=' . $app_psw);
 
 		$request = $request->withUri($uri);
-
 		$responce = $this->httpClient->sendRequest($request);
-
-		var_dump($responce->getStatusCode());
-
 		$responce->getBody()->seek(0);
 		$result = $responce->getBody()->getContents();
-
 		$result = json_decode($result, true);
-
-		return $result;
+		if ($responce->getStatusCode() == 200)
+		{
+			return $result['data'];
+		} elseif ($responce->getStatusCode() == 401)
+		{
+			$this->token = $this->getNewToken();
+			if (is_string($this->token) && (strlen($this->token) == 32)) {
+				$this->cache->set($this->getCacheKey(), $this->token);
+			} else {
+				throw new BruApiClientException('Данные для API неверные.');
+			}
+			return $this->graphQL($data);
+		}
 	}
 
 
