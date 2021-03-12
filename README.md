@@ -120,6 +120,11 @@ composer require business-ru/business-online-sdk-php
 
 Подробнее о веб - хуках можно узнать на сайте [документации.](https://developers.business.ru/)
 
+## Запросы в формате GraphQL
+
+Для запроса к API в формате GraphQL у созданного метода вызывается метод graphQL($data)
+В качестве параметра **$data** передается строка в формате GraphQL.
+
 ## Уведомления
 
 Для отправки уведомления пользователям используется метод **sendNotification()**
