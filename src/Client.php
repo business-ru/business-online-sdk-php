@@ -396,7 +396,7 @@ final class Client implements LoggerAwareInterface
 		$request = $request->withProtocolVersion('1.1');
 		$request = $request->withRequestTarget('api/rest/graphql.json');
 
-		$app_psw = md5($this->app_id . $this->secret . $this->token);
+		$app_psw = md5(((string)$this->app_id) . $this->secret . $this->token);
 		$uri = $uri->withQuery('app_id=' . $this->app_id . '&app_psw=' . $app_psw);
 
 		$request = $request->withUri($uri);
