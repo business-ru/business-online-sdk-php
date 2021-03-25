@@ -73,12 +73,6 @@ final class Client implements LoggerAwareInterface
 	private $sleepy;
 
 	/**
-	 * @var int
-	 *  Метка времени начала выполнения
-	 */
-	private $startTime;
-
-	/**
 	 * @var object
 	 * Объект для работы с кэшем
 	 */
@@ -154,11 +148,8 @@ final class Client implements LoggerAwareInterface
 		$this->secret = $secret;
 		$this->sleepy = $sleepy;
 
-		if (!$cache) $this->cache = new SimpleFileCache();
-		else $this->cache = $cache;
-
-		if (!$httpClient) $this->httpClient = new SimpleHttpClient();
-		else $this->httpClient = $httpClient;
+		$this->cache = $cache ?? new SimpleFileCache();
+		$this->httpClient = $httpClient ?? new SimpleHttpClient();
 
 		if ($this->cache->has($this->getCacheKey())) {
 			$this->token = $this->cache->get($this->getCacheKey());
@@ -175,8 +166,6 @@ final class Client implements LoggerAwareInterface
 				$this->cache->set($this->getCacheKey(), $this->token);
 			}
 		}
-
-		$this->startTime = $this->currentTime();
 	}
 
 	/**
@@ -206,37 +195,34 @@ final class Client implements LoggerAwareInterface
 	{
 		$method = 'GET';
 
-		$temp = $params;
-		$temp['count_only'] = 1;
+		if (!isset($params['limit']))
+		{
+			$request = $this->request($method, $model, ['count_only' => 1]);
 
-		$request = $this->request($method, $model, $temp);
-		$maxLimit = $request['result']['count'];
+			if (!isset($request['result']['count'])) return $request;
 
-		if ($maxLimit > 250) {
+			$maxLimit = $request['result']['count'];
+		} else {
+			$maxLimit = (int)$params['limit'];
+		}
+
+		if ($maxLimit > 250 )
+		{
 			$this->log(LogLevel::INFO, 'Выполнение запроса: количество записей в ответе - ' . $maxLimit);
-			$pages = (int)($maxLimit / 250);
-			$last_limit = $maxLimit % 250;
+
+			$pages = ceil($maxLimit / 250);
 
 			$result = [];
 			$result['result'] = [];
-			$result['status'] = [];
-			$result['request_count'] = 0;
 
-			for ($i = 0; $i < $pages; $i++) {
+			for ($i = 0; $i < $pages; $i++)
+			{
+				$params['page'] = $i + 1;
 				$params['limit'] = 250;
-				$params['page'] = ($i + 1);
 				$request = $this->request($method, $model, $params);
-				$result['result'] = array_merge($result['result'], $request['result']);
+				$result['result'] = array_merge($request['result'], $result['result']);
 				$result['status'] = $request['status'];
-				$result['request_count'] += (int)$request['request_count'];
-			}
-			if ($last_limit > 0) {
-				$params['limit'] = $last_limit;
-				$params['page'] = $pages + 1;
-				$request = $this->request($method, $model, $params);
-				$result['result'] = array_merge($result['result'], $request['result']);
-				$result['status'] = $request['status'];
-				$result['request_count'] += (int)$request['request_count'];
+				$result['request_count'] = $request['request_count'];
 			}
 			return $result;
 		}
@@ -390,10 +376,9 @@ final class Client implements LoggerAwareInterface
 		}
 		if ($result == 503 && $this->sleepy)
 		{
-			$this->rSleep($method, $model, $params);
-			$result = $this->request($method, $model, $params);
+			$result = $this->rSleep($method, $model, $params);
 		}
-		if (is_array($result['result'])) {
+		if (isset($result['result']) && is_array($result['result'])) {
 			$this->log(LogLevel::INFO, 'Количество записей в ответе: ' . count($result['result']));
 		}
 		return $result;
@@ -565,19 +550,20 @@ final class Client implements LoggerAwareInterface
 	 * @param $method
 	 * @param $model
 	 * @param $params
+	 * @return int|mixed|string[]
 	 * @throws BruApiClientException
 	 * @throws JsonException
 	 * @throws ClientExceptionInterface
 	 */
-	private function rSleep($method, $model, $params): void
+	private function rSleep($method, $model, $params)
 	{
-		if (($this->currentTime() - $this->startTime) > ((int)ini_get('max_execution_time') < 300) ?  ini_get('max_execution_time') : 300) {
-			$this->log(LogLevel::ERROR, 'Время ожидания сброса лимита запросов превышено');
-			throw new BruApiClientException('Время ожидания сброса лимита запросов превышено');
+		$result = $this->sendRequest($method, $model, $params);
+		if ($result === 503) {
+			$this->log(LogLevel::INFO, 'Превышен лимит запросов, пауза запроса - 30с');
+			sleep(30);
+			return $this->rSleep($method, $model, $params);
 		}
-		sleep(10);
-		$r = $this->sendRequest('GET', $model, ['count_only' => 1]);
-		if ($r === 503) $this->rSleep($method, $model, $params);
+		return $result;
 	}
 
 
@@ -605,16 +591,6 @@ final class Client implements LoggerAwareInterface
 			"status" => "error",
 			"error_code" => "http: 401"
 		];
-	}
-
-	/**
-	 * Возвращает текущую метку времени
-	 *
-	 * @return string Метка времени
-	 */
-	private function currentTime(): string
-	{
-		return strtotime(date("Y-m-d H:i:s"));
 	}
 
 	/**
