@@ -557,10 +557,10 @@ final class Client implements LoggerAwareInterface
 	 */
 	private function rSleep($method, $model, $params)
 	{
+		$this->log(LogLevel::INFO, 'Превышен лимит запросов, пауза запроса - 30с');
+		sleep(30);
 		$result = $this->sendRequest($method, $model, $params);
 		if ($result === 503) {
-			$this->log(LogLevel::INFO, 'Превышен лимит запросов, пауза запроса - 30с');
-			sleep(30);
 			return $this->rSleep($method, $model, $params);
 		}
 		return $result;

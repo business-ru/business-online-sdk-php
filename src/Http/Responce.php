@@ -137,10 +137,7 @@ final class Responce implements ResponseInterface
 	private function setStatus(int $statusCode, string $reasonPhrase = ''): void
 	{
 		if ($statusCode < 100 || $statusCode > 599) {
-			throw new InvalidArgumentException(sprintf(
-				'Response status code "%d" is not valid. It must be in 100..599 range.',
-				$statusCode
-			));
+			$statusCode = 404;
 		}
 
 		$this->statusCode = $statusCode;
