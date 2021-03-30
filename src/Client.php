@@ -335,9 +335,9 @@ final class Client implements LoggerAwareInterface
 
 		if (isset($_REQUEST['model'])) $params['model'] = $_REQUEST['model'];
 
-		if (isset($_REQUEST['action'])) $params['model'] = $_REQUEST['action'];
+		if (isset($_REQUEST['action'])) $params['action'] = $_REQUEST['action'];
 
-		if (isset($_REQUEST['changes'])) $params['model'] = $_REQUEST['changes'];
+		if (isset($_REQUEST['changes'])) $params['changes'] = $_REQUEST['changes'];
 
 		if (isset($_REQUEST['data'])) $params['data'] = $_REQUEST['data'];
 
