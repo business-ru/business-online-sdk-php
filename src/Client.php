@@ -331,7 +331,8 @@ final class Client implements LoggerAwareInterface
 
 		if (!isset($_REQUEST['app_psw'])) return false;
 
-		if (!isset($_REQUEST['app_id']) || ($_REQUEST['app_id'] !== $app_id)) return false;
+		if (!isset($_REQUEST['app_id']) || ((string)$_REQUEST['app_id'] !== (string)$app_id)) return false;
+		else $params['app_id'] = $_REQUEST['app_id'];
 
 		if (isset($_REQUEST['model'])) $params['model'] = $_REQUEST['model'];
 
