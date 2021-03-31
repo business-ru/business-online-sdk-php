@@ -1,7 +1,7 @@
 {
   "name": "business-ru/business-online-sdk-php",
   "description": "SDK для работы с API Бизнес.Ру",
-  "version": "1.4.6",
+  "version": "1.4.7",
   "type": "library",
   "homepage": "https://online.business.ru/",
   "license": "proprietary",
