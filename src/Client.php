@@ -197,7 +197,9 @@ final class Client implements LoggerAwareInterface
 
 		if (!isset($params['limit']))
 		{
-			$request = $this->request($method, $model, ['count_only' => 1]);
+			$tempParams = $params;
+			$tempParams['count_only'] = 1;
+			$request = $this->request($method, $model, $tempParams);
 
 			if (!isset($request['result']['count'])) return $request;
 
