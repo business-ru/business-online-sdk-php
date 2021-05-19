@@ -86,15 +86,15 @@ final class Client implements LoggerAwareInterface
 
 	/**
 	 * @var string
-	 * Хост (Для IP)
+	 * Хост
 	 */
 	private $host;
 
 	/**
 	 * @var int
-	 * Порт (Для IP)
+	 * Порт
 	 */
-	private $port = 0;
+	private $port = 80;
 
 
 	/**
@@ -129,16 +129,14 @@ final class Client implements LoggerAwareInterface
 	 * @throws JsonException
 	 * @throws SimpleFileCacheException
 	 */
-	public function __construct(string $account, int $app_id, string $secret,bool $sleepy = false, CacheInterface $cache = null, ClientInterface $httpClient = null)
+	public function __construct(string $account, int $app_id, string $secret, bool $sleepy = false, CacheInterface $cache = null, ClientInterface $httpClient = null)
 	{
-		if (preg_match('~\d{3}\.\d{3}\.\d{3}\.\d{3}~', $account))
-		{
-			$this->account = trim($account, '');
-			$this->account = trim($this->account, '/');
-			preg_match('~\d{3}\.\d{3}\.\d{3}\.\d{3}~', $account, $host);
-			preg_match('~:\d+~', $account, $port);
-			$this->port = trim($port[0], ':') ?? 0;
-			$this->host = $host[0];
+		if (strpos($account, "tus-dev") === 0) {
+			$accountData = explode(':', $account);
+			$crm = array_shift($accountData);
+			$this->account = 'https://' . $crm . '.class365.ru';
+			$this->host = $crm . '.class365.ru';
+			if ($port = (int)array_shift($accountData)) $this->port = $port;
 		} else {
 			$this->account = 'https://' . $account . '.business.ru';
 			$this->host = $account . '.business.ru';
@@ -155,16 +153,7 @@ final class Client implements LoggerAwareInterface
 			$this->token = $this->cache->get($this->getCacheKey());
 		} else {
 			$this->token = $this->getNewToken();
-
-			if (is_array($this->token) && $this->token['status'] === 'error') {
-				$this->log(LogLevel::ERROR, 'Данные для API неверные. Код ошибки: ' . $this->token['error_code'], ['account' => $account,
-					'app_id' => $app_id, 'secret' => $secret]);
-				throw new BruApiClientException('Данные для API неверные. Код ошибки: ' . $this->token['error_code']);
-			}
-
-			if (is_string($this->token) && (strlen($this->token) == 32)) {
-				$this->cache->set($this->getCacheKey(), $this->token);
-			}
+			$this->cache->set($this->getCacheKey(), $this->token);
 		}
 	}
 
@@ -195,8 +184,7 @@ final class Client implements LoggerAwareInterface
 	{
 		$method = 'GET';
 
-		if (!isset($params['limit']))
-		{
+		if (!isset($params['limit'])) {
 			$tempParams = $params;
 			$tempParams['count_only'] = 1;
 			$request = $this->request($method, $model, $tempParams);
@@ -208,8 +196,7 @@ final class Client implements LoggerAwareInterface
 			$maxLimit = (int)$params['limit'];
 		}
 
-		if ($maxLimit > 250 )
-		{
+		if ($maxLimit > 250) {
 			$this->log(LogLevel::INFO, 'Выполнение запроса: количество записей в ответе - ' . $maxLimit);
 
 			$pages = ceil($maxLimit / 250);
@@ -217,8 +204,7 @@ final class Client implements LoggerAwareInterface
 			$result = [];
 			$result['result'] = [];
 
-			for ($i = 0; $i < $pages; $i++)
-			{
+			for ($i = 0; $i < $pages; $i++) {
 				$params['page'] = $i + 1;
 				$params['limit'] = 250;
 				$request = $this->request($method, $model, $params);
@@ -291,27 +277,15 @@ final class Client implements LoggerAwareInterface
 	 * @throws JsonException
 	 * @throws SimpleFileCacheException
 	 */
-	public function sendNotificationSystem($employees, string $header, string $message, $document_id = null, $model_name = null, $action = null, $seconds = 0)
+	public function sendNotificationSystem(array $employees, string $header, string $message, $document_id = null, $model_name = null, $action = null, $seconds = 0)
 	{
-		$data = [];
-
-		if (is_array($employees))
-		{
-			foreach ($employees as $employee)
-			{
-				$data['employee_ids'][] = $employee;
-			}
-		} else {
-			$data['employee_ids'][] = (int)$employees;
-		}
-
+		$data['employee_ids'] = $employees;
 		$data['header'] = $header;
 		$data['message'] = $message;
 		if ($document_id) $data['document_id'] = $document_id;
 		if ($model_name) $data['model_name'] = $model_name;
 		if ($action) $data['action'] = $action;
 		if ($seconds) $data['seconds'] = $seconds;
-
 
 		$this->log(LogLevel::INFO, 'Уведомление успешно отправлено на обработку');
 		return $this->request('post', 'notifications', $data);
@@ -345,9 +319,7 @@ final class Client implements LoggerAwareInterface
 		if (isset($_REQUEST['data'])) $params['data'] = $_REQUEST['data'];
 
 		if (md5($secret . http_build_query($params)) !== $_REQUEST['app_psw']) return false;
-		else {
-			return true;
-		}
+		return true;
 	}
 
 	/**
@@ -372,13 +344,12 @@ final class Client implements LoggerAwareInterface
 	{
 		$result = $this->sendRequest(strtoupper($method), $model, $params);
 		//Токен не прошел
-		if ($result == 401) {
+		if ($result === 401) {
 			$this->token = $this->getNewToken();
 			$this->cache->set($this->getCacheKey(), $this->token);
 			$result = $this->sendRequest($method, $model, $params);
 		}
-		if ($result == 503 && $this->sleepy)
-		{
+		if ($result === 503 && $this->sleepy) {
 			$result = $this->rSleep($method, $model, $params);
 		}
 		if (isset($result['result']) && is_array($result['result'])) {
@@ -404,15 +375,13 @@ final class Client implements LoggerAwareInterface
 	public function graphQL(string $data)
 	{
 		$uri = new Uri();
-		preg_match('~^\w*~', $this->account, $scheme);
+
+		$scheme = explode(':', $this->account);
+		$uri = $uri->withScheme(reset($scheme));
+
 		$uri = $uri->withScheme($scheme[0]);
 		$uri = $uri->withHost($this->host);
-		if (!$this->port) {
-			if ($scheme === 'http') $uri = $uri->withPort(80);
-			if ($scheme === 'https') $uri = $uri->withPort(443);
-		} else {
-			$uri = $uri->withPort($this->port);
-		}
+		$uri = $uri->withPort($this->port);
 
 		$uri = $uri->withPath('api/rest/graphql.json');
 
@@ -437,11 +406,9 @@ final class Client implements LoggerAwareInterface
 		$responce->getBody()->seek(0);
 		$result = $responce->getBody()->getContents();
 		$result = json_decode($result, true);
-		if ($responce->getStatusCode() == 200)
-		{
+		if ($responce->getStatusCode() == 200) {
 			return $result;
-		} elseif ($responce->getStatusCode() == 401)
-		{
+		} elseif ($responce->getStatusCode() == 401) {
 			$this->token = $this->getNewToken();
 			if (is_string($this->token) && (strlen($this->token) == 32)) {
 				$this->cache->set($this->getCacheKey(), $this->token);
@@ -454,7 +421,7 @@ final class Client implements LoggerAwareInterface
 
 
 	/**
-	 * Отправить запрос к HTTP - клиенту
+	 * Отправить запрос HTTP - клиентом
 	 *
 	 * @param string $model Модель
 	 * @param string $method Метод (get, post, put, delete)
@@ -464,21 +431,20 @@ final class Client implements LoggerAwareInterface
 	 */
 	private function sendRequest(string $method, string $model, array $params = [])
 	{
+		$method = strtoupper($method);
 
 		$request = new Request();
 		$uri = new Uri();
 		$stream = new Stream('php://temp/bruapi/request', 'w+');
 
-		preg_match('~^\w*~', $this->account, $scheme);
-		$uri = $uri->withScheme($scheme[0]);
+		$scheme = explode(':', $this->account);
+		$uri = $uri->withScheme(reset($scheme));
 		$uri = $uri->withHost($this->host);
 		$uri = $uri->withPath('api/rest/' . $model . '.json');
-		$request = $request->withRequestTarget('api/rest/' . $model . '.json');
+		$uri = $uri->withPort($this->port);
 
-		if (!$this->port) {
-			if ($scheme === 'http') $uri = $uri->withPort(80);
-			if ($scheme === 'https') $uri = $uri->withPort(443);
-		} else $uri = $uri->withPort($this->port);
+		$request = $request->withRequestTarget('api/rest/' . $model . '.json');
+		$request = $request->withMethod($method);
 
 		if (isset($params['images']))
 			if (is_array($params['images']))
@@ -489,7 +455,8 @@ final class Client implements LoggerAwareInterface
 		array_walk_recursive($params, static function (&$val) {
 			if (is_null($val)) {
 				$val = '';
-			}});
+			}
+		});
 		$params_string = http_build_query($params);
 
 		$params = array();
@@ -497,13 +464,8 @@ final class Client implements LoggerAwareInterface
 
 		$params_string .= '&' . http_build_query($params);
 
-		if (strtoupper($method) === 'GET') {
-			$request = $request->withMethod('GET');
-			$uri = $uri->withQuery($params_string);
-		} else {
-			$request = $request->withMethod(strtoupper($method));
-			$stream->write($params_string);
-		}
+		if ($method === 'GET') $uri = $uri->withQuery($params_string);
+		else $stream->write($params_string);
 
 		$stream->seek(0);
 
@@ -545,7 +507,6 @@ final class Client implements LoggerAwareInterface
 	}
 
 	/**
-	 *
 	 * Если указан параметр $sleep = true в конструкторе
 	 * метод будет вызывать sleep() каждый раз, когда
 	 * будет превышен лимит запросов к API
@@ -576,24 +537,23 @@ final class Client implements LoggerAwareInterface
 	 * в случае успеха вернет строку с токеном
 	 * @return string|array Токен
 	 * @throws ClientExceptionInterface
-	 * @throws JsonException
+	 * @throws JsonException|BruApiClientException
 	 */
-	private function getNewToken()
+	private function getNewToken(): string
 	{
 		$this->token = '';
 		$result = $this->sendRequest('GET', 'repair');
 
-		if ($result['token'] && strlen($result['token']) === 32)
-		{
+		if (isset($result['token']) && is_string($result['token']) && strlen($result['token']) === 32) {
 			$this->log(LogLevel::INFO, 'Получен новый токен');
 			return $result['token'];
 		}
 
-		$this->log(LogLevel::ERROR, 'Не удалось получить токен. Код ошибки: ');
-		return [
-			"status" => "error",
-			"error_code" => "http: 401"
-		];
+		$errorMessage = 'Не удалось получить токен.';
+
+		if (is_array($result) && isset($result['error_code']) && !empty($result['error_code'])) $errorMessage .= ' Код ошибки: ' . $result['error_code'];
+
+		throw new BruApiClientException($errorMessage);
 	}
 
 	/**
@@ -601,7 +561,7 @@ final class Client implements LoggerAwareInterface
 	 * если был установлен логгер через метод setLogger()
 	 * @param string $level Уровень важности
 	 * @param string $message Сообщение
-	 * @param array $context Контекст ошибки
+	 * @param array $context Контекст сообщения
 	 */
 	private function log(string $level, string $message, array $context = []): void
 	{
@@ -612,8 +572,8 @@ final class Client implements LoggerAwareInterface
 	}
 
 	/**
-	 * @return string
 	 * Возвращает ключ кэша текущего приложения
+	 * @return string
 	 */
 	private function getCacheKey(): string
 	{
