@@ -137,7 +137,14 @@ final class Client implements LoggerAwareInterface
 			$this->account = 'https://' . $crm . '.class365.ru';
 			$this->host = $crm . '.class365.ru';
 			if ($port = (int)array_shift($accountData)) $this->port = $port;
-		} else {
+		}
+		elseif (strpos($account, "tus-global-dev") === 0) {
+			$accountData = explode(':', $account);
+			$this->account = 'https://ufanet.class365.ru';
+			$this->host = 'ufanet.class365.ru';
+			if (isset($accountData[1]) && (int)$accountData[1]) $this->port = $accountData[1];
+		}
+		else {
 			$this->account = 'https://' . $account . '.business.ru';
 			$this->host = $account . '.business.ru';
 		}
