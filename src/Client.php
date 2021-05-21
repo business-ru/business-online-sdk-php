@@ -131,18 +131,11 @@ final class Client implements LoggerAwareInterface
 	 */
 	public function __construct(string $account, int $app_id, string $secret, bool $sleepy = false, CacheInterface $cache = null, ClientInterface $httpClient = null)
 	{
-		if (strpos($account, "tus-dev") === 0) {
-			$accountData = explode(':', $account);
-			$crm = array_shift($accountData);
-			$this->account = 'https://' . $crm . '.class365.ru';
-			$this->host = $crm . '.class365.ru';
-			if ($port = (int)array_shift($accountData)) $this->port = $port;
-		}
-		elseif (strpos($account, "tus-global-dev") === 0) {
-			$accountData = explode(':', $account);
-			$this->account = 'https://ufanet.class365.ru';
-			$this->host = 'ufanet.class365.ru';
-			if (isset($accountData[1]) && (int)$accountData[1]) $this->port = $accountData[1];
+		$tmpAccountData = explode(':', trim($account, '/'));
+		if (count($tmpAccountData) === 3) {
+			$this->account = $account;
+			$this->host = ltrim($tmpAccountData[1], '/');
+			$this->port = $tmpAccountData[2];
 		}
 		else {
 			$this->account = 'https://' . $account . '.business.ru';
