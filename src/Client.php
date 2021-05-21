@@ -94,7 +94,7 @@ final class Client implements LoggerAwareInterface
 	 * @var int
 	 * Порт
 	 */
-	private $port = 80;
+	private $port = 443;
 
 
 	/**
