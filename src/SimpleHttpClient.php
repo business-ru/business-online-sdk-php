@@ -34,17 +34,15 @@ final class SimpleHttpClient implements ClientInterface
 
 		$params_string = $request->getUri()->getQuery();
 
-		if ($method !== 'GET')
-		{
-			$params_string = $request->getBody()->getContents();
-		}
+		if ($method !== 'GET') $params_string = $request->getBody()->getContents();
+
 		if ($method === 'POST') {
 			curl_setopt($c, CURLOPT_URL, $url);
 			curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
 			curl_setopt($c, CURLOPT_POST, true);
 			curl_setopt($c, CURLOPT_POSTFIELDS, $params_string);
 		} else if ($method === 'GET') {
-			curl_setopt($c, CURLOPT_URL, $url . '?' . $params_string);
+			curl_setopt($c, CURLOPT_URL, $url );
 			curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
 		} else if ($method === 'PUT') {
 			curl_setopt($c, CURLOPT_URL, $url);
