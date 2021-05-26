@@ -96,6 +96,12 @@ final class Client implements LoggerAwareInterface
 	 */
 	private $port = 443;
 
+	/**
+	 * @var string
+	 * URL последнего запроса
+	 */
+	public $url;
+
 
 	/**
 	 * Создание клиента API Бизнес.ру
@@ -471,6 +477,8 @@ final class Client implements LoggerAwareInterface
 
 		$request = $request->withBody($stream);
 		$request = $request->withUri($uri);
+
+		$this->url = (string)$request->getUri();
 
 		$responce = $this->httpClient->sendRequest($request);
 
