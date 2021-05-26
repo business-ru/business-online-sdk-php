@@ -30,6 +30,8 @@ final class SimpleHttpClient implements ClientInterface
 		$c = curl_init();
 
 		$url = (string)$request->getUri();
+
+		var_dump($url);
 		$method = strtoupper($request->getMethod());
 
 		$params_string = $request->getUri()->getQuery();

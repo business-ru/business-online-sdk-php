@@ -16,7 +16,6 @@ use Psr\Log\LogLevel;
 use Psr\SimpleCache\CacheInterface;
 use Psr\SimpleCache\InvalidArgumentException;
 
-use function preg_match;
 use function trim;
 use function is_array;
 use function is_string;
@@ -31,7 +30,6 @@ use function json_decode;
 use function ksort;
 use function array_walk_recursive;
 use function is_null;
-use function ini_get;
 use function sleep;
 use function date;
 use function call_user_func;
@@ -98,9 +96,9 @@ final class Client implements LoggerAwareInterface
 
 	/**
 	 * @var string
-	 * URL последнего запроса
+	 * Подготовленный URL
 	 */
-	public $url;
+	private $url;
 
 
 	/**
@@ -425,6 +423,39 @@ final class Client implements LoggerAwareInterface
 		}
 	}
 
+	/**
+	 * Получить подотовленный URL для запроса
+	 * @param string $method Метод
+	 * @param string $model Модель
+	 * @param array $params Параметры
+	 */
+	public function getPreparedUrl(string $method, string $model, array $params = []): string
+	{
+		$method = strtoupper($method);
+		$result = $this->account . 'api/rest/' . $model . '.json';
+		if ($method !== 'GET') return $result;
+
+		if (isset($params['images']))
+			if (is_array($params['images']))
+				$params['images'] = json_encode($params['images'], JSON_THROW_ON_ERROR);
+
+		$params['app_id'] = $this->app_id;
+		ksort($params);
+		array_walk_recursive($params, static function (&$val) {
+			if (is_null($val)) {
+				$val = '';
+			}
+		});
+		$params_string = http_build_query($params);
+
+		$params = [];
+		$params['app_psw'] = MD5($this->token . $this->secret . $params_string);
+
+		$params_string .= '&' . http_build_query($params);
+
+		return $result . '?' . $params_string;
+	}
+
 
 	/**
 	 * Отправить запрос HTTP - клиентом
@@ -477,8 +508,6 @@ final class Client implements LoggerAwareInterface
 
 		$request = $request->withBody($stream);
 		$request = $request->withUri($uri);
-
-		$this->url = (string)$request->getUri();
 
 		$responce = $this->httpClient->sendRequest($request);
 
