@@ -137,7 +137,7 @@ final class Client implements LoggerAwareInterface
 	{
 		$tmpAccountData = explode(':', trim($account, '/'));
 		if (count($tmpAccountData) === 3) {
-			$this->account = $account;
+			$this->account = trim($account, '/');
 			$this->host = ltrim($tmpAccountData[1], '/');
 			$this->port = $tmpAccountData[2];
 		}
