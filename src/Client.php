@@ -429,11 +429,10 @@ final class Client implements LoggerAwareInterface
 	 * @param string $model Модель
 	 * @param array $params Параметры
 	 */
-	public function getPreparedUrl(string $method, string $model, array $params = []): string
+	public function getPreparedUrl(string $method, string $model, array $params = []): array
 	{
 		$method = strtoupper($method);
 		$result = $this->account . '/api/rest/' . $model . '.json';
-		if ($method !== 'GET') return $result;
 
 		if (isset($params['images']))
 			if (is_array($params['images']))
@@ -453,7 +452,10 @@ final class Client implements LoggerAwareInterface
 
 		$params_string .= '&' . http_build_query($params);
 
-		return $result . '?' . $params_string;
+
+		if ($method === 'GET') $result = ['url' => $result . '?' . $params_string, 'data' => null];
+		else $result = ['url' => $result, 'data' => $params_string];
+		return $result;
 	}
 
 
