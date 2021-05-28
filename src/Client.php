@@ -432,7 +432,7 @@ final class Client implements LoggerAwareInterface
 	public function getPreparedUrl(string $method, string $model, array $params = []): string
 	{
 		$method = strtoupper($method);
-		$result = $this->account . 'api/rest/' . $model . '.json';
+		$result = $this->account . '/api/rest/' . $model . '.json';
 		if ($method !== 'GET') return $result;
 
 		if (isset($params['images']))
