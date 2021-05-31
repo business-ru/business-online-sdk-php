@@ -424,7 +424,9 @@ final class Client implements LoggerAwareInterface
 	}
 
 	/**
-	 * Получить подотовленный URL для запроса
+	 * Получить подотовленный URL для запроса в формате массива где
+	 * 'url' => Адрес для запроса
+	 * 'data' => Тело запроса (Не актуально для метода GET)
 	 * @param string $method Метод
 	 * @param string $model Модель
 	 * @param array $params Параметры
