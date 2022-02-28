@@ -1,3 +1,5 @@
+## Описание API:
+[https://api-online.class365.ru](https://api-online.class365.ru) 
 ## Требования:
 PHP 7.3 (и выше)
 ## Установка:
@@ -28,7 +30,7 @@ composer require business-ru/business-online-sdk-php
 
 ## Начало работы:
 
-Создайте обьект для работы с API:
+Создайте объект для работы с API:
 
 ```php
 	$api = new \bru\api\Client($account, $app_id, $secret, $sleep, $cache, $http);
@@ -72,17 +74,17 @@ composer require business-ru/business-online-sdk-php
 
 Не все модели поддерживают все методы.
 
-Подробнее о методах запроса можно узнать на сайте [документации.](https://developers.business.ru/)
+Подробнее о методах запроса можно узнать на сайте [документации.](https://api-online.class365.ru/api-polnoe/vvedenie_v_api_biznesru/228)
 
 ##### $model - Модель
 
 Модель - требуется для указания типа данных для работы
-Все поддерживаемые модели можно узнать на сайте [документации.](https://developers.business.ru/)
+Все поддерживаемые модели можно узнать на сайте [документации.](https://api-online.class365.ru/api-polnoe/vvedenie_v_api_biznesru/228)
 
 ##### $params - Параметры запроса
 
 Параметры запроса нужны для указания конкретного документа, сортировки, условий выборки и т.д.
-Возможные параметры можно узнать на сайте [документации.](https://developers.business.ru/)
+Возможные параметры можно узнать на сайте [документации.](https://api-online.class365.ru/api-polnoe/vvedenie_v_api_biznesru/228)
 
 ### RequestAll($model, $params)
 
@@ -95,12 +97,12 @@ composer require business-ru/business-online-sdk-php
 ##### $model - Модель
 
 Модель - требуется для указания типа данных для работы
-Все поддерживаемые модели можно узнать на сайте [документации.](https://developers.business.ru/)
+Все поддерживаемые модели можно узнать на сайте [документации.](https://api-online.class365.ru/api-polnoe/vvedenie_v_api_biznesru/228)
 
 ##### $params - Параметры запроса
 
 Параметры запроса нужны для указания конкретного документа, сортировки, условий выборки и т.д.
-Возможные параметры можно узнать на сайте [документации.](https://developers.business.ru/)
+Возможные параметры можно узнать на сайте [документации.](https://api-online.class365.ru/api-polnoe/vvedenie_v_api_biznesru/228)
 
 ## Работа с веб-хуками
 
@@ -118,14 +120,14 @@ composer require business-ru/business-online-sdk-php
 - **$app_id** - ID интеграции. Представляет собой набор цифр, который выдается при создании интеграции. Данный параметр является обязательным.
 - **$secret** - Секретный ключ. Представляет собой набор символов, который выдается при создании интеграции. Длина - 32 символа. Данный параметр является обязательным.
 
-Подробнее о веб - хуках можно узнать на сайте [документации.](https://developers.business.ru/)
+Подробнее о веб - хуках можно узнать на сайте [документации.](https://api-online.class365.ru/api-polnoe/vvedenie_v_api_biznesru/228)
 
 
 ## Уведомления
 
 Для отправки уведомления пользователям используется метод **sendNotification()**
 
-Метод принимает в качестве аргумента массив с параметрами уведомления, подробнее можно узнать на сайте [документации.](https://developers.business.ru/)
+Метод принимает в качестве аргумента массив с параметрами уведомления, подробнее можно узнать на сайте [документации.](https://api-online.class365.ru/api-polnoe/vvedenie_v_api_biznesru/228)
 
 ## Логирование
 
