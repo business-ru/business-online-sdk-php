@@ -129,8 +129,8 @@ final class UploadedFile implements UploadedFileInterface
 	/**
 	 * @return Stream|StreamInterface
 	 */
-	public function getStream()
-	{
+	public function getStream(): StreamInterface
+    {
 		if ($this->error !== UPLOAD_ERR_OK) {
 			throw new RuntimeException(self::ERRORS[$this->error]);
 		}
