@@ -3,6 +3,7 @@
 namespace bru\api\Http;
 
 use InvalidArgumentException;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UploadedFileInterface;
 use Psr\Http\Message\UriInterface;
@@ -140,8 +141,8 @@ final class ServerRequest implements ServerRequestInterface
 	 * @param string $method
 	 * @return string
 	 */
-	public function withMethod($method): string
-	{
+	public function withMethod($method): RequestInterface
+    {
 		if ($method === $this->method) {
 			return $this;
 		}
@@ -158,8 +159,8 @@ final class ServerRequest implements ServerRequestInterface
 		return $new;
 	}
 
-	public function getUri()
-	{
+	public function getUri(): UriInterface
+    {
 		return $this->uri;
 	}
 
@@ -276,8 +277,8 @@ final class ServerRequest implements ServerRequestInterface
 		return $new;
 	}
 
-	public function getAttributes()
-	{
+	public function getAttributes(): array
+    {
 		return $this->attributes;
 	}
 
