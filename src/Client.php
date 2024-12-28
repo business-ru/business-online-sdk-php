@@ -135,11 +135,13 @@ final class Client implements LoggerAwareInterface
 	 */
 	public function __construct(string $account, int $app_id, string $secret, bool $sleepy = false, CacheInterface $cache = null, ClientInterface $httpClient = null)
 	{
-		$tmpAccountData = explode(':', trim($account, '/'));
-		if (count($tmpAccountData) === 3) {
-			$this->account = trim($account, '/');
+        if(filter_var($account, FILTER_VALIDATE_URL)){
+            $tmpAccountData = explode(':', trim($account, '/'));
+			$this->account = $account;
 			$this->host = ltrim($tmpAccountData[1], '/');
-			$this->port = $tmpAccountData[2];
+            if(count($tmpAccountData) === 3){
+                $this->port = $tmpAccountData[2];
+            }
 		}
 		else {
 			$this->account = 'https://' . $account . '.business.ru';
